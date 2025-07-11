@@ -1,0 +1,54 @@
+05-05 08:21:12
+Error fetching unread notification count: ReferenceError: notifications is not defined
+05-05 08:21:12
+at DatabaseStorage.getUnreadNotificationCount (file:///home/runner/workspace/dist/index.js:1456:71)
+05-05 08:21:12
+at file:///home/runner/workspace/dist/index.js:10370:35
+05-05 08:21:12
+at Layer.handle [as handle_request] (/home/runner/workspace/node_modules/express/lib/router/layer.js:95:5)
+05-05 08:21:12
+at next (/home/runner/workspace/node_modules/express/lib/router/route.js:149:13)
+05-05 08:21:12
+at isAuthenticated (file:///home/runner/workspace/dist/index.js:6039:14)
+05-05 08:21:12
+at Layer.handle [as handle_request] (/home/runner/workspace/node_modules/express/lib/router/layer.js:95:5)
+05-05 08:21:12
+at next (/home/runner/workspace/node_modules/express/lib/router/route.js:149:13)
+05-05 08:21:12
+at Route.dispatch (/home/runner/workspace/node_modules/express/lib/router/route.js:119:3)
+05-05 08:21:12
+at Layer.handle [as handle_request] (/home/runner/workspace/node_modules/express/lib/router/layer.js:95:5)
+05-05 08:21:12
+at /home/runner/workspace/node_modules/express/lib/router/index.js:284:15
+05-05 08:21:12
+file:///home/runner/workspace/dist/index.js:1453
+05-05 08:21:12
+return await db.select().from(notifications).where(eq(notifications.userId, userId)).orderBy(desc(notifications.createdAt)).limit(limit).offset(offset);
+05-05 08:21:12
+^
+05-05 08:21:12
+05-05 08:21:12
+ReferenceError: notifications is not defined
+05-05 08:21:12
+at DatabaseStorage.getNotificationsByUserId (file:///home/runner/workspace/dist/index.js:1453:39)
+05-05 08:21:12
+at sendUnreadNotifications (file:///home/runner/workspace/dist/index.js:4180:40)
+05-05 08:21:12
+at WebSocketServer. (file:///home/runner/workspace/dist/index.js:4154:5)
+05-05 08:21:12
+at WebSocketServer.emit (node:events:518:28)
+05-05 08:21:12
+at WebSocketServer.completeUpgrade (/home/runner/workspace/node_modules/ws/lib/websocket-server.js:436:5)
+05-05 08:21:12
+at WebSocketServer.handleUpgrade (/home/runner/workspace/node_modules/ws/lib/websocket-server.js:344:10)
+05-05 08:21:12
+at Server.upgrade (/home/runner/workspace/node_modules/ws/lib/websocket-server.js:119:16)
+05-05 08:21:12
+at Server.emit (node:events:518:28)
+05-05 08:21:12
+at onParserExecuteCommon (node:_http_server:938:14)
+05-05 08:21:12
+at onParserExecute (node:_http_server:839:3)
+05-05 08:21:12
+05-05 08:21:12
+Node.js v20.18.1

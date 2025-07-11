@@ -1,0 +1,83 @@
+Search
+Time
+Log
+05-05 19:58:05
+Branch manager for Tirupathur already exists with ID: 39
+05-05 19:59:15
+2:29:15 PM [express] GET /api/notifications/unread-count 304 in 341ms :: {"count":"0"}
+05-05 19:59:45
+[AUTH DEBUG] Deserializing user ID: 2
+05-05 19:59:45
+[AUTH DEBUG] Deserialized user: ID: 2, Username: Selvi
+05-05 19:59:45
+2:29:45 PM [express] GET /api/notifications 304 in 335ms :: []
+05-05 19:59:46
+[AUTH DEBUG] Deserializing user ID: 2
+05-05 19:59:46
+[AUTH DEBUG] Deserialized user: ID: 2, Username: Selvi
+05-05 19:59:46
+2:29:46 PM [express] GET /api/notifications/unread-count 304 in 182ms :: {"count":"0"}
+05-05 20:00:05
+[AUTH DEBUG] Deserializing user ID: 2
+05-05 20:00:05
+[AUTH DEBUG] Deserialized user: ID: 2, Username: Selvi
+05-05 20:00:05
+[AUTH DEBUG] Logout attempt for user: Selvi
+05-05 20:00:05
+[AUTH DEBUG] Logout successful
+05-05 20:00:05
+2:30:05 PM [express] POST /api/logout 200 in 412ms
+05-05 20:00:29
+[AUTH DEBUG] Login attempt for: admin
+05-05 20:00:29
+[AUTH DEBUG] Login attempt for username: admin
+05-05 20:00:29
+[AUTH DEBUG] User found: ID: 1, Username: admin
+05-05 20:00:29
+[AUTH DEBUG] Comparing passwords for user admin
+05-05 20:00:29
+[AUTH DEBUG] Password match result: true
+05-05 20:00:29
+[AUTH DEBUG] Authentication successful for user admin
+05-05 20:00:29
+[AUTH DEBUG] Serializing user: 1
+05-05 20:00:30
+[AUTH DEBUG] Login successful for user admin
+05-05 20:00:30
+2:30:30 PM [express] POST /api/login 200 in 430ms :: {"id":1,"username":"admin","password":"37b66f6f…
+05-05 20:00:30
+[AUTH DEBUG] Deserializing user ID: 1
+05-05 20:00:30
+[AUTH DEBUG] Deserialized user: ID: 1, Username: admin
+05-05 20:00:40
+[AUTH DEBUG] Deserializing user ID: 1
+05-05 20:00:40
+[AUTH DEBUG] Deserialized user: ID: 1, Username: admin
+05-05 20:00:40
+[AUTH DEBUG] Deserializing user ID: 1
+05-05 20:00:40
+2:30:40 PM [express] GET /api/admin/grocery/categories 304 in 191ms :: [{"id":6,"name":"Ayurvedic pr…
+05-05 20:00:40
+[AUTH DEBUG] Deserializing user ID: 1
+05-05 20:00:40
+[AUTH DEBUG] Deserialized user: ID: 1, Username: admin
+05-05 20:00:40
+[AUTH DEBUG] Deserialized user: ID: 1, Username: admin
+05-05 20:00:40
+2:30:40 PM [express] GET /api/admin/grocery/subcategories 304 in 325ms :: [{"id":8,"name":"Beetroot"…
+05-05 20:00:42
+[AUTH DEBUG] Deserializing user ID: 1
+05-05 20:00:42
+[AUTH DEBUG] Deserialized user: ID: 1, Username: admin
+05-05 20:00:43
+[AUTH DEBUG] Deserializing user ID: 1
+05-05 20:00:43
+[AUTH DEBUG] Deserializing user ID: 1
+05-05 20:00:43
+[AUTH DEBUG] Deserialized user: ID: 1, Username: admin
+05-05 20:00:43
+[AUTH DEBUG] Deserialized user: ID: 1, Username: admin
+05-05 20:00:43
+[AUTH DEBUG] Deserializing user ID: 1
+05-05 20:00:43
+[AUTH DEBUG] 

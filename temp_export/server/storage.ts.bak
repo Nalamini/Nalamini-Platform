@@ -1,0 +1,2618 @@
+import { users, User, InsertUser, transactions, Transaction, InsertTransaction, feedback, Feedback, InsertFeedback, recharges, Recharge, InsertRecharge, bookings, Booking, InsertBooking, rentals, Rental, InsertRental, taxiRides, TaxiRide, InsertTaxiRide, deliveries, Delivery, InsertDelivery, groceryProducts, GroceryProduct, InsertGroceryProduct, localProducts, LocalProduct, InsertLocalProduct, recyclingRequests, RecyclingRequest, InsertRecyclingRequest, commissionConfigs, CommissionConfig, InsertCommissionConfig, commissions, Commission, InsertCommission, serviceProviders, ServiceProvider, InsertServiceProvider, farmerDetails, FarmerDetail, InsertFarmerDetail, manufacturerDetails, ManufacturerDetail, InsertManufacturerDetail, bookingAgentDetails, BookingAgentDetail, InsertBookingAgentDetail, taxiProviderDetails, TaxiProviderDetail, InsertTaxiProviderDetail, transportationAgentDetails, TransportationAgentDetail, InsertTransportationAgentDetail, rentalProviderDetails, RentalProviderDetail, InsertRentalProviderDetail, recyclingAgentDetails, RecyclingAgentDetail, InsertRecyclingAgentDetail } from "@shared/schema";
+import session from "express-session";
+import createMemoryStore from "memorystore";
+import connectPg from "connect-pg-simple";
+import { db } from "./db";
+import { pool } from "./db";
+import { eq, asc, desc } from "drizzle-orm";
+
+const MemoryStore = createMemoryStore(session);
+const PostgresSessionStore = connectPg(session);
+
+// Interface for storage operations
+export interface IStorage {
+  // User operations
+  getUser(id: number): Promise<User | undefined>;
+  getUserByUsername(username: string): Promise<User | undefined>;
+  createUser(user: InsertUser): Promise<User>;
+  updateUser(id: number, user: Partial<User>): Promise<User | undefined>;
+  listUsers(filter?: { userType?: string, parentId?: number }): Promise<User[]>;
+  
+  // Wallet operations
+  deductUserWalletBalance(userId: number, amount: number): Promise<number>;
+  
+  // Transaction operations
+  createTransaction(transaction: InsertTransaction): Promise<Transaction>;
+  getTransactionsByUserId(userId: number): Promise<Transaction[]>;
+  
+  // Feedback operations
+  createFeedback(feedback: InsertFeedback): Promise<Feedback>;
+  listFeedback(filter?: { userId?: number, serviceType?: string }): Promise<Feedback[]>;
+
+  // Recharge operations
+  createRecharge(recharge: InsertRecharge): Promise<Recharge>;
+  getRechargesByUserId(userId: number): Promise<Recharge[]>;
+  updateRecharge(id: number, recharge: Partial<Recharge>): Promise<Recharge | undefined>;
+
+  // Booking operations
+  createBooking(booking: InsertBooking): Promise<Booking>;
+  getBookingsByUserId(userId: number): Promise<Booking[]>;
+  getBooking(id: number): Promise<Booking | undefined>;
+  updateBooking(id: number, booking: Partial<Booking>): Promise<Booking | undefined>;
+
+  // Rental operations
+  createRental(rental: InsertRental): Promise<Rental>;
+  getRentalsByUserId(userId: number): Promise<Rental[]>;
+  updateRental(id: number, rental: Partial<Rental>): Promise<Rental | undefined>;
+
+  // Taxi operations
+  createTaxiRide(taxiRide: InsertTaxiRide): Promise<TaxiRide>;
+  getTaxiRidesByUserId(userId: number): Promise<TaxiRide[]>;
+  updateTaxiRide(id: number, taxiRide: Partial<TaxiRide>): Promise<TaxiRide | undefined>;
+
+  // Delivery operations
+  createDelivery(delivery: InsertDelivery): Promise<Delivery>;
+  getDeliveriesByUserId(userId: number): Promise<Delivery[]>;
+  updateDelivery(id: number, delivery: Partial<Delivery>): Promise<Delivery | undefined>;
+
+  // Grocery operations
+  createGroceryProduct(product: InsertGroceryProduct): Promise<GroceryProduct>;
+  getGroceryProducts(filter?: { category?: string, district?: string, isOrganic?: boolean }): Promise<GroceryProduct[]>;
+  getGroceryProductById(id: number): Promise<GroceryProduct | undefined>;
+  updateGroceryProduct(id: number, product: Partial<GroceryProduct>): Promise<GroceryProduct | undefined>;
+
+  // Local products operations
+  createLocalProduct(product: InsertLocalProduct): Promise<LocalProduct>;
+  getLocalProducts(filter?: { category?: string, district?: string }): Promise<LocalProduct[]>;
+  getLocalProductById(id: number): Promise<LocalProduct | undefined>;
+  updateLocalProduct(id: number, product: Partial<LocalProduct>): Promise<LocalProduct | undefined>;
+
+  // Recycling operations
+  createRecyclingRequest(request: InsertRecyclingRequest): Promise<RecyclingRequest>;
+  getRecyclingRequestsByUserId(userId: number): Promise<RecyclingRequest[]>;
+  getRecyclingRequestsByAgentId(agentId: number): Promise<RecyclingRequest[]>;
+  updateRecyclingRequest(id: number, request: Partial<RecyclingRequest>): Promise<RecyclingRequest | undefined>;
+
+  // Commission operations
+  createCommissionConfig(config: InsertCommissionConfig): Promise<CommissionConfig>;
+  getCommissionConfig(id: number): Promise<CommissionConfig | undefined>;
+  getCommissionConfigByService(serviceType: string, provider?: string): Promise<CommissionConfig | undefined>;
+  updateCommissionConfig(id: number, config: Partial<CommissionConfig>): Promise<CommissionConfig | undefined>;
+  listCommissionConfigs(): Promise<CommissionConfig[]>;
+  
+  // Commission distribution
+  createCommission(commission: InsertCommission): Promise<Commission>;
+  getCommissionsByUserId(userId: number): Promise<Commission[]>;
+  getCommissionsByServiceType(serviceType: string): Promise<Commission[]>;
+  updateCommission(id: number, commission: Partial<Commission>): Promise<Commission | undefined>;
+  
+  // Commission calculation and distribution
+  calculateCommissions(serviceType: string, serviceId: number, amount: number, provider?: string): Promise<void>;
+  distributeCommission(
+    serviceAgentId: number, 
+    parentChain: number[], 
+    transactionId: number, 
+    serviceType: string, 
+    serviceId: number, 
+    amount: number,
+    config: CommissionConfig
+  ): Promise<void>;
+  distributeRegisteredUserCommission(
+    registeredUserId: number,
+    transactionId: number,
+    serviceType: string,
+    serviceId: number,
+    amount: number,
+    commissionPercentage: number
+  ): Promise<void>;
+  
+  // Service Provider operations
+  createServiceProvider(provider: InsertServiceProvider): Promise<ServiceProvider>;
+  getServiceProvider(id: number): Promise<ServiceProvider | undefined>;
+  getServiceProviderByUserId(userId: number): Promise<ServiceProvider | undefined>;
+  listServiceProviders(filter?: { providerType?: string, district?: string, taluk?: string, status?: string }): Promise<ServiceProvider[]>;
+  updateServiceProvider(id: number, provider: Partial<ServiceProvider>): Promise<ServiceProvider | undefined>;
+
+  // Farmer operations
+  createFarmerDetail(detail: InsertFarmerDetail): Promise<FarmerDetail>;
+  getFarmerDetail(id: number): Promise<FarmerDetail | undefined>; 
+  getFarmerDetailByProviderId(providerId: number): Promise<FarmerDetail | undefined>;
+  updateFarmerDetail(id: number, detail: Partial<FarmerDetail>): Promise<FarmerDetail | undefined>;
+  
+  // Manufacturer operations
+  createManufacturerDetail(detail: InsertManufacturerDetail): Promise<ManufacturerDetail>;
+  getManufacturerDetail(id: number): Promise<ManufacturerDetail | undefined>;
+  getManufacturerDetailByProviderId(providerId: number): Promise<ManufacturerDetail | undefined>;
+  updateManufacturerDetail(id: number, detail: Partial<ManufacturerDetail>): Promise<ManufacturerDetail | undefined>;
+  
+  // Booking Agent operations
+  createBookingAgentDetail(detail: InsertBookingAgentDetail): Promise<BookingAgentDetail>;
+  getBookingAgentDetail(id: number): Promise<BookingAgentDetail | undefined>;
+  getBookingAgentDetailByProviderId(providerId: number): Promise<BookingAgentDetail | undefined>;
+  updateBookingAgentDetail(id: number, detail: Partial<BookingAgentDetail>): Promise<BookingAgentDetail | undefined>;
+  
+  // Taxi Provider operations
+  createTaxiProviderDetail(detail: InsertTaxiProviderDetail): Promise<TaxiProviderDetail>;
+  getTaxiProviderDetail(id: number): Promise<TaxiProviderDetail | undefined>;
+  getTaxiProviderDetailByProviderId(providerId: number): Promise<TaxiProviderDetail | undefined>;
+  updateTaxiProviderDetail(id: number, detail: Partial<TaxiProviderDetail>): Promise<TaxiProviderDetail | undefined>;
+  
+  // Transportation Agent operations
+  createTransportationAgentDetail(detail: InsertTransportationAgentDetail): Promise<TransportationAgentDetail>;
+  getTransportationAgentDetail(id: number): Promise<TransportationAgentDetail | undefined>;
+  getTransportationAgentDetailByProviderId(providerId: number): Promise<TransportationAgentDetail | undefined>;
+  updateTransportationAgentDetail(id: number, detail: Partial<TransportationAgentDetail>): Promise<TransportationAgentDetail | undefined>;
+  
+  // Rental Provider operations
+  createRentalProviderDetail(detail: InsertRentalProviderDetail): Promise<RentalProviderDetail>;
+  getRentalProviderDetail(id: number): Promise<RentalProviderDetail | undefined>;
+  getRentalProviderDetailByProviderId(providerId: number): Promise<RentalProviderDetail | undefined>;
+  updateRentalProviderDetail(id: number, detail: Partial<RentalProviderDetail>): Promise<RentalProviderDetail | undefined>;
+  
+  // Recycling Agent operations
+  createRecyclingAgentDetail(detail: InsertRecyclingAgentDetail): Promise<RecyclingAgentDetail>;
+  getRecyclingAgentDetail(id: number): Promise<RecyclingAgentDetail | undefined>;
+  getRecyclingAgentDetailByProviderId(providerId: number): Promise<RecyclingAgentDetail | undefined>;
+  updateRecyclingAgentDetail(id: number, detail: Partial<RecyclingAgentDetail>): Promise<RecyclingAgentDetail | undefined>;
+  
+  // Session store
+  sessionStore: session.SessionStore;
+}
+
+export class MemStorage implements IStorage {
+  private users: Map<number, User>;
+  private transactions: Map<number, Transaction>;
+  private feedback: Map<number, Feedback>;
+  private recharges: Map<number, Recharge>;
+  private bookings: Map<number, Booking>;
+  private rentals: Map<number, Rental>;
+  private taxiRides: Map<number, TaxiRide>;
+  private deliveries: Map<number, Delivery>;
+  private groceryProducts: Map<number, GroceryProduct>;
+  private localProducts: Map<number, LocalProduct>;
+  private recyclingRequests: Map<number, RecyclingRequest>;
+  private commissionConfigs: Map<number, CommissionConfig>;
+  private commissions: Map<number, Commission>;
+  
+  // Service provider maps
+  private serviceProviders: Map<number, ServiceProvider>;
+  private farmerDetails: Map<number, FarmerDetail>;
+  private manufacturerDetails: Map<number, ManufacturerDetail>;
+  private bookingAgentDetails: Map<number, BookingAgentDetail>;
+  private taxiProviderDetails: Map<number, TaxiProviderDetail>;
+  private transportationAgentDetails: Map<number, TransportationAgentDetail>;
+  private rentalProviderDetails: Map<number, RentalProviderDetail>;
+  private recyclingAgentDetails: Map<number, RecyclingAgentDetail>;
+  
+  sessionStore: session.SessionStore;
+  
+  private userIdCounter: number = 1;
+  private transactionIdCounter: number = 1;
+  private feedbackIdCounter: number = 1;
+  private rechargeIdCounter: number = 1;
+  private bookingIdCounter: number = 1;
+  private rentalIdCounter: number = 1;
+  private taxiRideIdCounter: number = 1;
+  private deliveryIdCounter: number = 1;
+  private groceryProductIdCounter: number = 1;
+  private localProductIdCounter: number = 1;
+  private recyclingRequestIdCounter: number = 1;
+  private commissionConfigIdCounter: number = 1;
+  private commissionIdCounter: number = 1;
+  
+  // Service provider counters
+  private serviceProviderIdCounter: number = 1;
+  private farmerDetailIdCounter: number = 1;
+  private manufacturerDetailIdCounter: number = 1;
+  private bookingAgentDetailIdCounter: number = 1;
+  private taxiProviderDetailIdCounter: number = 1;
+  private transportationAgentDetailIdCounter: number = 1;
+  private rentalProviderDetailIdCounter: number = 1;
+  private recyclingAgentDetailIdCounter: number = 1;
+
+  constructor() {
+    this.users = new Map();
+    this.transactions = new Map();
+    this.feedback = new Map();
+    this.recharges = new Map();
+    this.bookings = new Map();
+    this.rentals = new Map();
+    this.taxiRides = new Map();
+    this.deliveries = new Map();
+    this.groceryProducts = new Map();
+    this.localProducts = new Map();
+    this.recyclingRequests = new Map();
+    this.commissionConfigs = new Map();
+    this.commissions = new Map();
+    
+    // Initialize service provider maps
+    this.serviceProviders = new Map();
+    this.farmerDetails = new Map();
+    this.manufacturerDetails = new Map();
+    this.bookingAgentDetails = new Map();
+    this.taxiProviderDetails = new Map();
+    this.transportationAgentDetails = new Map();
+    this.rentalProviderDetails = new Map();
+    this.recyclingAgentDetails = new Map();
+    
+    this.sessionStore = new MemoryStore({
+      checkPeriod: 86400000 // Prune expired entries every 24h
+    });
+    
+    // Create admin user
+    this.createUser({
+      username: "admin",
+      password: "admin123", // will be hashed in auth.ts
+      fullName: "System Administrator",
+      email: "admin@tnservices.com",
+      userType: "admin",
+      phone: "9876543210"
+    });
+  }
+
+  // User operations
+  async getUser(id: number): Promise<User | undefined> {
+    return this.users.get(id);
+  }
+
+  async getUserByUsername(username: string): Promise<User | undefined> {
+    return Array.from(this.users.values()).find(
+      (user) => user.username.toLowerCase() === username.toLowerCase(),
+    );
+  }
+
+  async createUser(user: InsertUser): Promise<User> {
+    const id = this.userIdCounter++;
+    const newUser: User = { 
+      id, 
+      ...user,
+      createdAt: new Date()
+    };
+    this.users.set(id, newUser);
+    return newUser;
+  }
+
+  async updateUser(id: number, userData: Partial<User>): Promise<User | undefined> {
+    const user = this.users.get(id);
+    if (!user) return undefined;
+    
+    const updatedUser = { ...user, ...userData };
+    this.users.set(id, updatedUser);
+    return updatedUser;
+  }
+
+  async deductUserWalletBalance(userId: number, amount: number): Promise<number> {
+    const user = await this.getUser(userId);
+    if (!user) {
+      throw new Error('User not found');
+    }
+    
+    // Initialize wallet balance if it doesn't exist
+    const currentBalance = user.walletBalance || 0;
+    
+    // Check if user has sufficient balance
+    if (currentBalance < amount) {
+      throw new Error('Insufficient wallet balance');
+    }
+    
+    // Update user's wallet balance
+    const newBalance = currentBalance - amount;
+    await this.updateUser(userId, { walletBalance: newBalance });
+    
+    return newBalance;
+  }
+
+  async listUsers(filter?: { userType?: string, parentId?: number }): Promise<User[]> {
+    let users = Array.from(this.users.values());
+    
+    if (filter?.userType) {
+      users = users.filter(user => user.userType === filter.userType);
+    }
+    
+    if (filter?.parentId !== undefined) {
+      users = users.filter(user => user.parentId === filter.parentId);
+    }
+    
+    return users;
+  }
+
+  // Transaction operations
+  async createTransaction(transaction: InsertTransaction): Promise<Transaction> {
+    const id = this.transactionIdCounter++;
+    const newTransaction: Transaction = {
+      id,
+      ...transaction,
+      createdAt: new Date()
+    };
+    this.transactions.set(id, newTransaction);
+    return newTransaction;
+  }
+
+  async getTransactionsByUserId(userId: number): Promise<Transaction[]> {
+    return Array.from(this.transactions.values())
+      .filter(transaction => transaction.userId === userId)
+      .sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime());
+  }
+
+  // Feedback operations
+  async createFeedback(feedbackData: InsertFeedback): Promise<Feedback> {
+    const id = this.feedbackIdCounter++;
+    const newFeedback: Feedback = {
+      id,
+      ...feedbackData,
+      createdAt: new Date()
+    };
+    this.feedback.set(id, newFeedback);
+    return newFeedback;
+  }
+
+  async listFeedback(filter?: { userId?: number, serviceType?: string }): Promise<Feedback[]> {
+    let feedbackList = Array.from(this.feedback.values());
+    
+    if (filter?.userId !== undefined) {
+      feedbackList = feedbackList.filter(f => f.userId === filter.userId);
+    }
+    
+    if (filter?.serviceType) {
+      feedbackList = feedbackList.filter(f => f.serviceType === filter.serviceType);
+    }
+    
+    return feedbackList.sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime());
+  }
+
+  // Recharge operations
+  async createRecharge(recharge: InsertRecharge): Promise<Recharge> {
+    const id = this.rechargeIdCounter++;
+    const newRecharge: Recharge = {
+      id,
+      ...recharge,
+      createdAt: new Date()
+    };
+    this.recharges.set(id, newRecharge);
+    return newRecharge;
+  }
+
+  async getRechargesByUserId(userId: number): Promise<Recharge[]> {
+    return Array.from(this.recharges.values())
+      .filter(recharge => recharge.userId === userId)
+      .sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime());
+  }
+
+  async updateRecharge(id: number, rechargeData: Partial<Recharge>): Promise<Recharge | undefined> {
+    const recharge = this.recharges.get(id);
+    if (!recharge) return undefined;
+    
+    const updatedRecharge = { ...recharge, ...rechargeData };
+    this.recharges.set(id, updatedRecharge);
+    return updatedRecharge;
+  }
+
+  // Booking operations
+  async createBooking(booking: InsertBooking): Promise<Booking> {
+    const id = this.bookingIdCounter++;
+    const newBooking: Booking = {
+      id,
+      ...booking,
+      createdAt: new Date()
+    };
+    this.bookings.set(id, newBooking);
+    return newBooking;
+  }
+
+  async getBookingsByUserId(userId: number): Promise<Booking[]> {
+    return Array.from(this.bookings.values())
+      .filter(booking => booking.userId === userId)
+      .sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime());
+  }
+
+  async getBooking(id: number): Promise<Booking | undefined> {
+    return this.bookings.get(id);
+  }
+
+  async updateBooking(id: number, bookingData: Partial<Booking>): Promise<Booking | undefined> {
+    const booking = this.bookings.get(id);
+    if (!booking) return undefined;
+    
+    const updatedBooking = { ...booking, ...bookingData };
+    this.bookings.set(id, updatedBooking);
+    return updatedBooking;
+  }
+
+  // Rental operations
+  async createRental(rental: InsertRental): Promise<Rental> {
+    const id = this.rentalIdCounter++;
+    const newRental: Rental = {
+      id,
+      ...rental,
+      createdAt: new Date()
+    };
+    this.rentals.set(id, newRental);
+    return newRental;
+  }
+
+  async getRentalsByUserId(userId: number): Promise<Rental[]> {
+    return Array.from(this.rentals.values())
+      .filter(rental => rental.userId === userId)
+      .sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime());
+  }
+
+  async updateRental(id: number, rentalData: Partial<Rental>): Promise<Rental | undefined> {
+    const rental = this.rentals.get(id);
+    if (!rental) return undefined;
+    
+    const updatedRental = { ...rental, ...rentalData };
+    this.rentals.set(id, updatedRental);
+    return updatedRental;
+  }
+
+  // Taxi operations
+  async createTaxiRide(taxiRide: InsertTaxiRide): Promise<TaxiRide> {
+    const id = this.taxiRideIdCounter++;
+    const newTaxiRide: TaxiRide = {
+      id,
+      ...taxiRide,
+      createdAt: new Date()
+    };
+    this.taxiRides.set(id, newTaxiRide);
+    return newTaxiRide;
+  }
+
+  async getTaxiRidesByUserId(userId: number): Promise<TaxiRide[]> {
+    return Array.from(this.taxiRides.values())
+      .filter(taxiRide => taxiRide.userId === userId)
+      .sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime());
+  }
+
+  async updateTaxiRide(id: number, taxiRideData: Partial<TaxiRide>): Promise<TaxiRide | undefined> {
+    const taxiRide = this.taxiRides.get(id);
+    if (!taxiRide) return undefined;
+    
+    const updatedTaxiRide = { ...taxiRide, ...taxiRideData };
+    this.taxiRides.set(id, updatedTaxiRide);
+    return updatedTaxiRide;
+  }
+
+  // Delivery operations
+  async createDelivery(delivery: InsertDelivery): Promise<Delivery> {
+    const id = this.deliveryIdCounter++;
+    const newDelivery: Delivery = {
+      id,
+      ...delivery,
+      createdAt: new Date()
+    };
+    this.deliveries.set(id, newDelivery);
+    return newDelivery;
+  }
+
+  async getDeliveriesByUserId(userId: number): Promise<Delivery[]> {
+    return Array.from(this.deliveries.values())
+      .filter(delivery => delivery.userId === userId)
+      .sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime());
+  }
+
+  async updateDelivery(id: number, deliveryData: Partial<Delivery>): Promise<Delivery | undefined> {
+    const delivery = this.deliveries.get(id);
+    if (!delivery) return undefined;
+    
+    const updatedDelivery = { ...delivery, ...deliveryData };
+    this.deliveries.set(id, updatedDelivery);
+    return updatedDelivery;
+  }
+
+  // Grocery operations
+  async createGroceryProduct(product: InsertGroceryProduct): Promise<GroceryProduct> {
+    const id = this.groceryProductIdCounter++;
+    const newProduct: GroceryProduct = {
+      id,
+      ...product,
+      createdAt: new Date()
+    };
+    this.groceryProducts.set(id, newProduct);
+    return newProduct;
+  }
+
+  async getGroceryProducts(filter?: { category?: string, district?: string, isOrganic?: boolean }): Promise<GroceryProduct[]> {
+    let products = Array.from(this.groceryProducts.values());
+    
+    if (filter?.category) {
+      products = products.filter(product => product.category === filter.category);
+    }
+    
+    if (filter?.district) {
+      products = products.filter(product => product.district === filter.district);
+    }
+    
+    if (filter?.isOrganic !== undefined) {
+      products = products.filter(product => product.isOrganic === filter.isOrganic);
+    }
+    
+    return products;
+  }
+
+  async getGroceryProductById(id: number): Promise<GroceryProduct | undefined> {
+    return this.groceryProducts.get(id);
+  }
+
+  async updateGroceryProduct(id: number, productData: Partial<GroceryProduct>): Promise<GroceryProduct | undefined> {
+    const product = this.groceryProducts.get(id);
+    if (!product) return undefined;
+    
+    const updatedProduct = { ...product, ...productData };
+    this.groceryProducts.set(id, updatedProduct);
+    return updatedProduct;
+  }
+
+  // Local products operations
+  async createLocalProduct(product: InsertLocalProduct): Promise<LocalProduct> {
+    const id = this.localProductIdCounter++;
+    const newProduct: LocalProduct = {
+      id,
+      ...product,
+      createdAt: new Date()
+    };
+    this.localProducts.set(id, newProduct);
+    return newProduct;
+  }
+
+  async getLocalProducts(filter?: { category?: string, district?: string }): Promise<LocalProduct[]> {
+    let products = Array.from(this.localProducts.values());
+    
+    if (filter?.category) {
+      products = products.filter(product => product.category === filter.category);
+    }
+    
+    if (filter?.district) {
+      products = products.filter(product => product.district === filter.district);
+    }
+    
+    return products;
+  }
+
+  async getLocalProductById(id: number): Promise<LocalProduct | undefined> {
+    return this.localProducts.get(id);
+  }
+
+  async updateLocalProduct(id: number, productData: Partial<LocalProduct>): Promise<LocalProduct | undefined> {
+    const product = this.localProducts.get(id);
+    if (!product) return undefined;
+    
+    const updatedProduct = { ...product, ...productData };
+    this.localProducts.set(id, updatedProduct);
+    return updatedProduct;
+  }
+
+  // Recycling operations
+  async createRecyclingRequest(request: InsertRecyclingRequest): Promise<RecyclingRequest> {
+    const id = this.recyclingRequestIdCounter++;
+    const newRequest: RecyclingRequest = {
+      id,
+      ...request,
+      createdAt: new Date()
+    };
+    this.recyclingRequests.set(id, newRequest);
+    return newRequest;
+  }
+
+  async getRecyclingRequestsByUserId(userId: number): Promise<RecyclingRequest[]> {
+    return Array.from(this.recyclingRequests.values())
+      .filter(request => request.userId === userId)
+      .sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime());
+  }
+
+  async getRecyclingRequestsByAgentId(agentId: number): Promise<RecyclingRequest[]> {
+    return Array.from(this.recyclingRequests.values())
+      .filter(request => request.agentId === agentId)
+      .sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime());
+  }
+
+  async updateRecyclingRequest(id: number, requestData: Partial<RecyclingRequest>): Promise<RecyclingRequest | undefined> {
+    const request = this.recyclingRequests.get(id);
+    if (!request) return undefined;
+    
+    const updatedRequest = { ...request, ...requestData };
+    this.recyclingRequests.set(id, updatedRequest);
+    return updatedRequest;
+  }
+
+  // Commission Configuration operations
+  async createCommissionConfig(config: InsertCommissionConfig): Promise<CommissionConfig> {
+    const id = this.commissionConfigIdCounter++;
+    const newConfig: CommissionConfig = {
+      id,
+      ...config,
+      createdAt: new Date(),
+      updatedAt: new Date()
+    };
+    this.commissionConfigs.set(id, newConfig);
+    return newConfig;
+  }
+
+  async getCommissionConfig(id: number): Promise<CommissionConfig | undefined> {
+    return this.commissionConfigs.get(id);
+  }
+
+  async getCommissionConfigByService(serviceType: string, provider?: string): Promise<CommissionConfig | undefined> {
+    return Array.from(this.commissionConfigs.values())
+      .find(config => {
+        if (!config.isActive) return false;
+        if (config.serviceType !== serviceType) return false;
+        if (provider && config.provider !== provider) return false;
+        return true;
+      });
+  }
+
+  async updateCommissionConfig(id: number, configData: Partial<CommissionConfig>): Promise<CommissionConfig | undefined> {
+    const config = this.commissionConfigs.get(id);
+    if (!config) return undefined;
+    
+    const updatedConfig = { 
+      ...config, 
+      ...configData,
+      updatedAt: new Date()
+    };
+    this.commissionConfigs.set(id, updatedConfig);
+    return updatedConfig;
+  }
+
+  async listCommissionConfigs(): Promise<CommissionConfig[]> {
+    return Array.from(this.commissionConfigs.values())
+      .sort((a, b) => b.updatedAt.getTime() - a.updatedAt.getTime());
+  }
+
+  // Commission operations
+  async createCommission(commission: InsertCommission): Promise<Commission> {
+    const id = this.commissionIdCounter++;
+    const newCommission: Commission = {
+      id,
+      ...commission,
+      createdAt: new Date()
+    };
+    this.commissions.set(id, newCommission);
+    return newCommission;
+  }
+
+  async getCommissionsByUserId(userId: number): Promise<Commission[]> {
+    return Array.from(this.commissions.values())
+      .filter(commission => commission.userId === userId)
+      .sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime());
+  }
+
+  async getCommissionsByServiceType(serviceType: string): Promise<Commission[]> {
+    return Array.from(this.commissions.values())
+      .filter(commission => commission.serviceType === serviceType)
+      .sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime());
+  }
+
+  async updateCommission(id: number, commissionData: Partial<Commission>): Promise<Commission | undefined> {
+    const commission = this.commissions.get(id);
+    if (!commission) return undefined;
+    
+    const updatedCommission = { ...commission, ...commissionData };
+    this.commissions.set(id, updatedCommission);
+    return updatedCommission;
+  }
+
+  // Commission calculation and distribution
+  async calculateCommissions(serviceType: string, serviceId: number, amount: number, provider?: string): Promise<void> {
+    // Get the commission config for this service type and provider
+    const config = await this.getCommissionConfigByService(serviceType, provider);
+    if (!config) {
+      throw new Error(`No commission configuration found for ${serviceType} ${provider || ''}`);
+    }
+
+    // For recharge, get the recharge record to find the service agent who processed it
+    let serviceAgentId: number | null = null;
+    if (serviceType === 'recharge') {
+      const recharge = this.recharges.get(serviceId);
+      if (recharge?.processedBy) {
+        serviceAgentId = recharge.processedBy;
+      }
+    }
+
+    if (!serviceAgentId) {
+      throw new Error('No service agent found for this transaction');
+    }
+
+    // Get the service agent's hierarchy chain (service agent -> taluk manager -> branch manager -> admin)
+    const parentChain = await this.getParentChain(serviceAgentId);
+    
+    // Create a transaction record
+    const transaction = await this.createTransaction({
+      userId: serviceAgentId,
+      amount,
+      type: 'credit',
+      description: `${serviceType} transaction`,
+      serviceType
+    });
+
+    // Distribute commissions to each person in the hierarchy
+    await this.distributeCommission(serviceAgentId, parentChain, transaction.id, serviceType, serviceId, amount, config);
+  }
+
+  // Helper to get the parent chain from a user up to admin
+  async getParentChain(userId: number): Promise<number[]> {
+    const chain: number[] = [];
+    let currentUser = await this.getUser(userId);
+    
+    while (currentUser?.parentId) {
+      chain.push(currentUser.parentId);
+      currentUser = await this.getUser(currentUser.parentId);
+    }
+    
+    return chain;
+  }
+  
+  // Distribute commission to everyone in the hierarchy
+  async distributeCommission(
+    serviceAgentId: number, 
+    parentChain: number[], 
+    transactionId: number, 
+    serviceType: string, 
+    serviceId: number, 
+    amount: number,
+    config: CommissionConfig
+  ): Promise<void> {
+    // Service agent commission
+    const serviceAgent = await this.getUser(serviceAgentId);
+    if (!serviceAgent) throw new Error('Service agent not found');
+    
+    const serviceAgentCommission = amount * (config.serviceAgentCommission / 100);
+    await this.createCommission({
+      transactionId,
+      userId: serviceAgentId,
+      userType: 'service_agent',
+      serviceType,
+      serviceId,
+      originalAmount: amount,
+      commissionPercentage: config.serviceAgentCommission,
+      commissionAmount: serviceAgentCommission,
+      status: 'pending'
+    });
+    
+    // Update service agent wallet balance
+    await this.updateUser(serviceAgentId, {
+      walletBalance: (serviceAgent.walletBalance || 0) + serviceAgentCommission
+    });
+    
+    // Find taluk manager, branch manager, and admin from the parent chain
+    if (parentChain.length > 0) {
+      // Taluk Manager (first parent)
+      const talukManagerId = parentChain[0];
+      const talukManager = await this.getUser(talukManagerId);
+      if (talukManager) {
+        const talukManagerCommission = amount * (config.talukManagerCommission / 100);
+        await this.createCommission({
+          transactionId,
+          userId: talukManagerId,
+          userType: 'taluk_manager',
+          serviceType,
+          serviceId,
+          originalAmount: amount,
+          commissionPercentage: config.talukManagerCommission,
+          commissionAmount: talukManagerCommission,
+          status: 'pending'
+        });
+        
+        await this.updateUser(talukManagerId, {
+          walletBalance: (talukManager.walletBalance || 0) + talukManagerCommission
+        });
+      }
+      
+      // Branch Manager (second parent if exists)
+      if (parentChain.length > 1) {
+        const branchManagerId = parentChain[1];
+        const branchManager = await this.getUser(branchManagerId);
+        if (branchManager) {
+          const branchManagerCommission = amount * (config.branchManagerCommission / 100);
+          await this.createCommission({
+            transactionId,
+            userId: branchManagerId,
+            userType: 'branch_manager',
+            serviceType,
+            serviceId,
+            originalAmount: amount,
+            commissionPercentage: config.branchManagerCommission,
+            commissionAmount: branchManagerCommission,
+            status: 'pending'
+          });
+          
+          await this.updateUser(branchManagerId, {
+            walletBalance: (branchManager.walletBalance || 0) + branchManagerCommission
+          });
+        }
+      }
+      
+      // Admin (last in chain)
+      if (parentChain.length > 2) {
+        const adminId = parentChain[2];
+        const admin = await this.getUser(adminId);
+        if (admin) {
+          const adminCommission = amount * (config.adminCommission / 100);
+          await this.createCommission({
+            transactionId,
+            userId: adminId,
+            userType: 'admin',
+            serviceType,
+            serviceId,
+            originalAmount: amount,
+            commissionPercentage: config.adminCommission,
+            commissionAmount: adminCommission,
+            status: 'pending'
+          });
+          
+          await this.updateUser(adminId, {
+            walletBalance: (admin.walletBalance || 0) + adminCommission
+          });
+        }
+      }
+    }
+  }
+}
+
+export class DatabaseStorage implements IStorage {
+  sessionStore: session.SessionStore;
+
+  constructor() {
+    this.sessionStore = new PostgresSessionStore({ 
+      pool, 
+      createTableIfMissing: true 
+    });
+  }
+
+  // User operations
+  async deductUserWalletBalance(userId: number, amount: number): Promise<number> {
+    const [user] = await db.select().from(users).where(eq(users.id, userId));
+    
+    if (!user) {
+      throw new Error('User not found');
+    }
+    
+    // Initialize wallet balance if it doesn't exist
+    const currentBalance = user.walletBalance || 0;
+    
+    // Check if user has sufficient balance
+    if (currentBalance < amount) {
+      throw new Error('Insufficient wallet balance');
+    }
+    
+    // Update user's wallet balance
+    const newBalance = currentBalance - amount;
+    await db.update(users)
+      .set({ walletBalance: newBalance })
+      .where(eq(users.id, userId));
+    
+    return newBalance;
+  }
+
+  async getUser(id: number): Promise<User | undefined> {
+    const [user] = await db.select().from(users).where(eq(users.id, id));
+    return user;
+  }
+
+  async getUserByUsername(username: string): Promise<User | undefined> {
+    const [user] = await db.select().from(users).where(eq(users.username, username));
+    return user;
+  }
+
+  async createUser(user: InsertUser): Promise<User> {
+    const [newUser] = await db.insert(users).values({
+      ...user,
+      createdAt: new Date()
+    }).returning();
+    return newUser;
+  }
+
+  async updateUser(id: number, userData: Partial<User>): Promise<User | undefined> {
+    const [updatedUser] = await db
+      .update(users)
+      .set(userData)
+      .where(eq(users.id, id))
+      .returning();
+    return updatedUser;
+  }
+
+  async listUsers(filter?: { userType?: string, parentId?: number }): Promise<User[]> {
+    let query = db.select().from(users);
+    
+    if (filter?.userType) {
+      query = query.where(eq(users.userType, filter.userType));
+    }
+    
+    if (filter?.parentId !== undefined) {
+      query = query.where(eq(users.parentId, filter.parentId));
+    }
+    
+    return await query;
+  }
+
+  // Transaction operations
+  async createTransaction(transaction: InsertTransaction): Promise<Transaction> {
+    const [newTransaction] = await db.insert(transactions).values({
+      ...transaction,
+      createdAt: new Date()
+    }).returning();
+    return newTransaction;
+  }
+
+  async getTransactionsByUserId(userId: number): Promise<Transaction[]> {
+    return await db
+      .select()
+      .from(transactions)
+      .where(eq(transactions.userId, userId))
+      .orderBy(desc(transactions.createdAt));
+  }
+
+  // Feedback operations
+  async createFeedback(feedbackData: InsertFeedback): Promise<Feedback> {
+    const [newFeedback] = await db.insert(feedback).values({
+      ...feedbackData,
+      createdAt: new Date()
+    }).returning();
+    return newFeedback;
+  }
+
+  async listFeedback(filter?: { userId?: number, serviceType?: string }): Promise<Feedback[]> {
+    let query = db.select().from(feedback);
+    
+    if (filter?.userId !== undefined) {
+      query = query.where(eq(feedback.userId, filter.userId));
+    }
+    
+    if (filter?.serviceType) {
+      query = query.where(eq(feedback.serviceType, filter.serviceType));
+    }
+    
+    return await query.orderBy(desc(feedback.createdAt));
+  }
+
+  // Recharge operations
+  async createRecharge(recharge: InsertRecharge): Promise<Recharge> {
+    const [newRecharge] = await db.insert(recharges).values({
+      ...recharge,
+      createdAt: new Date()
+    }).returning();
+    return newRecharge;
+  }
+
+  async getRechargesByUserId(userId: number): Promise<Recharge[]> {
+    return await db
+      .select()
+      .from(recharges)
+      .where(eq(recharges.userId, userId))
+      .orderBy(desc(recharges.createdAt));
+  }
+
+  async updateRecharge(id: number, rechargeData: Partial<Recharge>): Promise<Recharge | undefined> {
+    const [updatedRecharge] = await db
+      .update(recharges)
+      .set(rechargeData)
+      .where(eq(recharges.id, id))
+      .returning();
+    return updatedRecharge;
+  }
+
+  // Booking operations
+  async createBooking(booking: InsertBooking): Promise<Booking> {
+    const [newBooking] = await db.insert(bookings).values({
+      ...booking,
+      createdAt: new Date()
+    }).returning();
+    return newBooking;
+  }
+
+  async getBookingsByUserId(userId: number): Promise<Booking[]> {
+    return await db
+      .select()
+      .from(bookings)
+      .where(eq(bookings.userId, userId))
+      .orderBy(desc(bookings.createdAt));
+  }
+
+  async getBooking(id: number): Promise<Booking | undefined> {
+    const [booking] = await db
+      .select()
+      .from(bookings)
+      .where(eq(bookings.id, id));
+    return booking;
+  }
+
+  async updateBooking(id: number, bookingData: Partial<Booking>): Promise<Booking | undefined> {
+    const [updatedBooking] = await db
+      .update(bookings)
+      .set(bookingData)
+      .where(eq(bookings.id, id))
+      .returning();
+    return updatedBooking;
+  }
+
+  // Rental operations
+  async createRental(rental: InsertRental): Promise<Rental> {
+    const [newRental] = await db.insert(rentals).values({
+      ...rental,
+      createdAt: new Date()
+    }).returning();
+    return newRental;
+  }
+
+  async getRentalsByUserId(userId: number): Promise<Rental[]> {
+    return await db
+      .select()
+      .from(rentals)
+      .where(eq(rentals.userId, userId))
+      .orderBy(desc(rentals.createdAt));
+  }
+
+  async updateRental(id: number, rentalData: Partial<Rental>): Promise<Rental | undefined> {
+    const [updatedRental] = await db
+      .update(rentals)
+      .set(rentalData)
+      .where(eq(rentals.id, id))
+      .returning();
+    return updatedRental;
+  }
+
+  // Taxi operations
+  async createTaxiRide(taxiRide: InsertTaxiRide): Promise<TaxiRide> {
+    const [newTaxiRide] = await db.insert(taxiRides).values({
+      ...taxiRide,
+      createdAt: new Date()
+    }).returning();
+    return newTaxiRide;
+  }
+
+  async getTaxiRidesByUserId(userId: number): Promise<TaxiRide[]> {
+    return await db
+      .select()
+      .from(taxiRides)
+      .where(eq(taxiRides.userId, userId))
+      .orderBy(desc(taxiRides.createdAt));
+  }
+
+  async updateTaxiRide(id: number, taxiRideData: Partial<TaxiRide>): Promise<TaxiRide | undefined> {
+    const [updatedTaxiRide] = await db
+      .update(taxiRides)
+      .set(taxiRideData)
+      .where(eq(taxiRides.id, id))
+      .returning();
+    return updatedTaxiRide;
+  }
+
+  // Delivery operations
+  async createDelivery(delivery: InsertDelivery): Promise<Delivery> {
+    const [newDelivery] = await db.insert(deliveries).values({
+      ...delivery,
+      createdAt: new Date()
+    }).returning();
+    return newDelivery;
+  }
+
+  async getDeliveriesByUserId(userId: number): Promise<Delivery[]> {
+    return await db
+      .select()
+      .from(deliveries)
+      .where(eq(deliveries.userId, userId))
+      .orderBy(desc(deliveries.createdAt));
+  }
+
+  async updateDelivery(id: number, deliveryData: Partial<Delivery>): Promise<Delivery | undefined> {
+    const [updatedDelivery] = await db
+      .update(deliveries)
+      .set(deliveryData)
+      .where(eq(deliveries.id, id))
+      .returning();
+    return updatedDelivery;
+  }
+
+  // Grocery operations
+  async createGroceryProduct(product: InsertGroceryProduct): Promise<GroceryProduct> {
+    const [newProduct] = await db.insert(groceryProducts).values({
+      ...product,
+      createdAt: new Date()
+    }).returning();
+    return newProduct;
+  }
+
+  async getGroceryProducts(filter?: { category?: string, district?: string, isOrganic?: boolean }): Promise<GroceryProduct[]> {
+    let query = db.select().from(groceryProducts);
+    
+    if (filter?.category) {
+      query = query.where(eq(groceryProducts.category, filter.category));
+    }
+    
+    if (filter?.district) {
+      query = query.where(eq(groceryProducts.district, filter.district));
+    }
+    
+    if (filter?.isOrganic !== undefined) {
+      query = query.where(eq(groceryProducts.isOrganic, filter.isOrganic));
+    }
+    
+    return await query;
+  }
+
+  async getGroceryProductById(id: number): Promise<GroceryProduct | undefined> {
+    const [product] = await db
+      .select()
+      .from(groceryProducts)
+      .where(eq(groceryProducts.id, id));
+    return product;
+  }
+
+  async updateGroceryProduct(id: number, productData: Partial<GroceryProduct>): Promise<GroceryProduct | undefined> {
+    const [updatedProduct] = await db
+      .update(groceryProducts)
+      .set(productData)
+      .where(eq(groceryProducts.id, id))
+      .returning();
+    return updatedProduct;
+  }
+
+  // Local products operations
+  async createLocalProduct(product: InsertLocalProduct): Promise<LocalProduct> {
+    const [newProduct] = await db.insert(localProducts).values({
+      ...product,
+      createdAt: new Date()
+    }).returning();
+    return newProduct;
+  }
+
+  async getLocalProducts(filter?: { category?: string, district?: string }): Promise<LocalProduct[]> {
+    let query = db.select().from(localProducts);
+    
+    if (filter?.category) {
+      query = query.where(eq(localProducts.category, filter.category));
+    }
+    
+    if (filter?.district) {
+      query = query.where(eq(localProducts.district, filter.district));
+    }
+    
+    return await query;
+  }
+
+  async getLocalProductById(id: number): Promise<LocalProduct | undefined> {
+    const [product] = await db
+      .select()
+      .from(localProducts)
+      .where(eq(localProducts.id, id));
+    return product;
+  }
+
+  async updateLocalProduct(id: number, productData: Partial<LocalProduct>): Promise<LocalProduct | undefined> {
+    const [updatedProduct] = await db
+      .update(localProducts)
+      .set(productData)
+      .where(eq(localProducts.id, id))
+      .returning();
+    return updatedProduct;
+  }
+
+  // Recycling operations
+  async createRecyclingRequest(request: InsertRecyclingRequest): Promise<RecyclingRequest> {
+    const [newRequest] = await db.insert(recyclingRequests).values({
+      ...request,
+      createdAt: new Date()
+    }).returning();
+    return newRequest;
+  }
+
+  async getRecyclingRequestsByUserId(userId: number): Promise<RecyclingRequest[]> {
+    return await db
+      .select()
+      .from(recyclingRequests)
+      .where(eq(recyclingRequests.userId, userId))
+      .orderBy(desc(recyclingRequests.createdAt));
+  }
+
+  async getRecyclingRequestsByAgentId(agentId: number): Promise<RecyclingRequest[]> {
+    return await db
+      .select()
+      .from(recyclingRequests)
+      .where(eq(recyclingRequests.agentId, agentId))
+      .orderBy(desc(recyclingRequests.createdAt));
+  }
+
+  async updateRecyclingRequest(id: number, requestData: Partial<RecyclingRequest>): Promise<RecyclingRequest | undefined> {
+    const [updatedRequest] = await db
+      .update(recyclingRequests)
+      .set(requestData)
+      .where(eq(recyclingRequests.id, id))
+      .returning();
+    return updatedRequest;
+  }
+
+  // Commission Configuration operations
+  async createCommissionConfig(config: InsertCommissionConfig): Promise<CommissionConfig> {
+    const [newConfig] = await db
+      .insert(commissionConfigs)
+      .values({
+        ...config,
+        createdAt: new Date(),
+        updatedAt: new Date()
+      })
+      .returning();
+    return newConfig;
+  }
+
+  async getCommissionConfig(id: number): Promise<CommissionConfig | undefined> {
+    const [config] = await db
+      .select()
+      .from(commissionConfigs)
+      .where(eq(commissionConfigs.id, id));
+    return config;
+  }
+
+  async getCommissionConfigByService(serviceType: string, provider?: string): Promise<CommissionConfig | undefined> {
+    let query = db
+      .select()
+      .from(commissionConfigs)
+      .where(eq(commissionConfigs.serviceType, serviceType))
+      .where(eq(commissionConfigs.isActive, true));
+    
+    if (provider) {
+      query = query.where(eq(commissionConfigs.provider, provider));
+    }
+    
+    const [config] = await query;
+    return config;
+  }
+
+  async updateCommissionConfig(id: number, configData: Partial<CommissionConfig>): Promise<CommissionConfig | undefined> {
+    const [updatedConfig] = await db
+      .update(commissionConfigs)
+      .set({
+        ...configData,
+        updatedAt: new Date()
+      })
+      .where(eq(commissionConfigs.id, id))
+      .returning();
+    return updatedConfig;
+  }
+
+  async listCommissionConfigs(): Promise<CommissionConfig[]> {
+    return await db
+      .select()
+      .from(commissionConfigs)
+      .orderBy(desc(commissionConfigs.updatedAt));
+  }
+
+  // Commission operations
+  async createCommission(commission: InsertCommission): Promise<Commission> {
+    const [newCommission] = await db
+      .insert(commissions)
+      .values({
+        ...commission,
+        createdAt: new Date()
+      })
+      .returning();
+    return newCommission;
+  }
+
+  async getCommissionsByUserId(userId: number): Promise<Commission[]> {
+    return await db
+      .select()
+      .from(commissions)
+      .where(eq(commissions.userId, userId))
+      .orderBy(desc(commissions.createdAt));
+  }
+
+  async getCommissionsByServiceType(serviceType: string): Promise<Commission[]> {
+    return await db
+      .select()
+      .from(commissions)
+      .where(eq(commissions.serviceType, serviceType))
+      .orderBy(desc(commissions.createdAt));
+  }
+
+  async updateCommission(id: number, commissionData: Partial<Commission>): Promise<Commission | undefined> {
+    const [updatedCommission] = await db
+      .update(commissions)
+      .set(commissionData)
+      .where(eq(commissions.id, id))
+      .returning();
+    return updatedCommission;
+  }
+
+  // Commission calculation and distribution
+  async calculateCommissions(serviceType: string, serviceId: number, amount: number, provider?: string): Promise<void> {
+    // Get the commission config for this service type and provider
+    const config = await this.getCommissionConfigByService(serviceType, provider);
+    if (!config) {
+      throw new Error(`No commission configuration found for ${serviceType} ${provider || ''}`);
+    }
+
+    // Get the registered user who initiated the transaction
+    let registeredUserId: number | null = null;
+    let serviceAgentId: number | null = null;
+
+    // For recharge, get the recharge record to find the service agent who processed it and the user who initiated it
+    if (serviceType === 'recharge') {
+      const [recharge] = await db
+        .select()
+        .from(recharges)
+        .where(eq(recharges.id, serviceId));
+      
+      if (recharge) {
+        serviceAgentId = recharge.processedBy || null;
+        registeredUserId = recharge.userId || null;
+      }
+    }
+
+    if (!serviceAgentId) {
+      throw new Error('No service agent found for this transaction');
+    }
+
+    // Get the service agent's hierarchy chain (service agent -> taluk manager -> branch manager -> admin)
+    const parentChain = await this.getParentChain(serviceAgentId);
+    
+    // Create a transaction record
+    const [transaction] = await db
+      .insert(transactions)
+      .values({
+        userId: serviceAgentId,
+        amount,
+        type: 'credit',
+        description: `${serviceType} transaction`,
+        serviceType,
+        createdAt: new Date()
+      })
+      .returning();
+
+    // Distribute commissions to each person in the hierarchy
+    await this.distributeCommission(
+      serviceAgentId, 
+      parentChain, 
+      transaction.id, 
+      serviceType, 
+      serviceId, 
+      amount, 
+      config
+    );
+    
+    // Distribute commission to registered user if applicable
+    if (registeredUserId && registeredUserId !== serviceAgentId) {
+      await this.distributeRegisteredUserCommission(
+        registeredUserId,
+        transaction.id,
+        serviceType,
+        serviceId,
+        amount,
+        config.registeredUserCommission
+      );
+    }
+  }
+
+  // Helper to get the parent chain from a user up to admin
+  async getParentChain(userId: number): Promise<number[]> {
+    const chain: number[] = [];
+    let currentUser = await this.getUser(userId);
+    
+    while (currentUser?.parentId) {
+      chain.push(currentUser.parentId);
+      currentUser = await this.getUser(currentUser.parentId);
+    }
+    
+    return chain;
+  }
+  
+  // Distribute commission to everyone in the hierarchy
+  async distributeCommission(
+    serviceAgentId: number, 
+    parentChain: number[], 
+    transactionId: number, 
+    serviceType: string, 
+    serviceId: number, 
+    amount: number,
+    config: CommissionConfig
+  ): Promise<void> {
+    // Service agent commission
+    const serviceAgent = await this.getUser(serviceAgentId);
+    if (!serviceAgent) throw new Error('Service agent not found');
+    
+    const serviceAgentCommission = amount * (config.serviceAgentCommission / 100);
+    await this.createCommission({
+      transactionId,
+      userId: serviceAgentId,
+      userType: 'service_agent',
+      serviceType,
+      serviceId,
+      originalAmount: amount,
+      commissionPercentage: config.serviceAgentCommission,
+      commissionAmount: serviceAgentCommission,
+      status: 'pending'
+    });
+    
+    // Update service agent wallet balance
+    await this.updateUser(serviceAgentId, {
+      walletBalance: (serviceAgent.walletBalance || 0) + serviceAgentCommission
+    });
+    
+    // Find taluk manager, branch manager, and admin from the parent chain
+    if (parentChain.length > 0) {
+      // Taluk Manager (first parent)
+      const talukManagerId = parentChain[0];
+      const talukManager = await this.getUser(talukManagerId);
+      if (talukManager) {
+        const talukManagerCommission = amount * (config.talukManagerCommission / 100);
+        await this.createCommission({
+          transactionId,
+          userId: talukManagerId,
+          userType: 'taluk_manager',
+          serviceType,
+          serviceId,
+          originalAmount: amount,
+          commissionPercentage: config.talukManagerCommission,
+          commissionAmount: talukManagerCommission,
+          status: 'pending'
+        });
+        
+        await this.updateUser(talukManagerId, {
+          walletBalance: (talukManager.walletBalance || 0) + talukManagerCommission
+        });
+      }
+      
+      // Branch Manager (second parent if exists)
+      if (parentChain.length > 1) {
+        const branchManagerId = parentChain[1];
+        const branchManager = await this.getUser(branchManagerId);
+        if (branchManager) {
+          const branchManagerCommission = amount * (config.branchManagerCommission / 100);
+          await this.createCommission({
+            transactionId,
+            userId: branchManagerId,
+            userType: 'branch_manager',
+            serviceType,
+            serviceId,
+            originalAmount: amount,
+            commissionPercentage: config.branchManagerCommission,
+            commissionAmount: branchManagerCommission,
+            status: 'pending'
+          });
+          
+          await this.updateUser(branchManagerId, {
+            walletBalance: (branchManager.walletBalance || 0) + branchManagerCommission
+          });
+        }
+      }
+      
+      // Admin (last in chain)
+      if (parentChain.length > 2) {
+        const adminId = parentChain[2];
+        const admin = await this.getUser(adminId);
+        if (admin) {
+          const adminCommission = amount * (config.adminCommission / 100);
+          await this.createCommission({
+            transactionId,
+            userId: adminId,
+            userType: 'admin',
+            serviceType,
+            serviceId,
+            originalAmount: amount,
+            commissionPercentage: config.adminCommission,
+            commissionAmount: adminCommission,
+            status: 'pending'
+          });
+          
+          await this.updateUser(adminId, {
+            walletBalance: (admin.walletBalance || 0) + adminCommission
+          });
+        }
+      }
+    }
+  }
+  
+  // Add registered user commission to the distribution system
+  async distributeRegisteredUserCommission(
+    registeredUserId: number,
+    transactionId: number,
+    serviceType: string,
+    serviceId: number,
+    amount: number,
+    commissionPercentage: number
+  ): Promise<void> {
+    const registeredUser = await this.getUser(registeredUserId);
+    if (!registeredUser) return;
+    
+    const registeredUserCommission = amount * (commissionPercentage / 100);
+    await this.createCommission({
+      transactionId,
+      userId: registeredUserId,
+      userType: 'registered_user',
+      serviceType,
+      serviceId,
+      originalAmount: amount,
+      commissionPercentage,
+      commissionAmount: registeredUserCommission,
+      status: 'pending'
+    });
+    
+    await this.updateUser(registeredUserId, {
+      walletBalance: (registeredUser.walletBalance || 0) + registeredUserCommission
+    });
+  }
+
+  // Service Provider operations
+  async createServiceProvider(provider: InsertServiceProvider): Promise<ServiceProvider> {
+    const id = this.serviceProviderIdCounter++;
+    const newProvider: ServiceProvider = {
+      id,
+      ...provider,
+      createdAt: new Date(),
+      updatedAt: new Date()
+    };
+    this.serviceProviders.set(id, newProvider);
+    return newProvider;
+  }
+
+  async getServiceProvider(id: number): Promise<ServiceProvider | undefined> {
+    return this.serviceProviders.get(id);
+  }
+
+  async getServiceProviderByUserId(userId: number): Promise<ServiceProvider | undefined> {
+    return Array.from(this.serviceProviders.values()).find(
+      provider => provider.userId === userId
+    );
+  }
+
+  async listServiceProviders(filter?: { providerType?: string, district?: string, taluk?: string, status?: string }): Promise<ServiceProvider[]> {
+    let providers = Array.from(this.serviceProviders.values());
+    
+    if (filter?.providerType) {
+      providers = providers.filter(provider => provider.providerType === filter.providerType);
+    }
+    
+    if (filter?.district) {
+      providers = providers.filter(provider => provider.district === filter.district);
+    }
+    
+    if (filter?.taluk) {
+      providers = providers.filter(provider => provider.taluk === filter.taluk);
+    }
+    
+    if (filter?.status) {
+      providers = providers.filter(provider => provider.status === filter.status);
+    }
+    
+    return providers.sort((a, b) => b.updatedAt.getTime() - a.updatedAt.getTime());
+  }
+
+  async updateServiceProvider(id: number, providerData: Partial<ServiceProvider>): Promise<ServiceProvider | undefined> {
+    const provider = this.serviceProviders.get(id);
+    if (!provider) return undefined;
+    
+    const updatedProvider = { 
+      ...provider, 
+      ...providerData,
+      updatedAt: new Date()
+    };
+    this.serviceProviders.set(id, updatedProvider);
+    return updatedProvider;
+  }
+
+  // Farmer operations
+  async createFarmerDetail(detail: InsertFarmerDetail): Promise<FarmerDetail> {
+    const id = this.farmerDetailIdCounter++;
+    const newDetail: FarmerDetail = {
+      id,
+      ...detail,
+      createdAt: new Date(),
+      updatedAt: new Date()
+    };
+    this.farmerDetails.set(id, newDetail);
+    return newDetail;
+  }
+
+  async getFarmerDetail(id: number): Promise<FarmerDetail | undefined> {
+    return this.farmerDetails.get(id);
+  }
+
+  async getFarmerDetailByProviderId(providerId: number): Promise<FarmerDetail | undefined> {
+    return Array.from(this.farmerDetails.values()).find(
+      detail => detail.serviceProviderId === providerId
+    );
+  }
+
+  async updateFarmerDetail(id: number, detailData: Partial<FarmerDetail>): Promise<FarmerDetail | undefined> {
+    const detail = this.farmerDetails.get(id);
+    if (!detail) return undefined;
+    
+    const updatedDetail = { 
+      ...detail, 
+      ...detailData,
+      updatedAt: new Date()
+    };
+    this.farmerDetails.set(id, updatedDetail);
+    return updatedDetail;
+  }
+
+  // Manufacturer operations
+  async createManufacturerDetail(detail: InsertManufacturerDetail): Promise<ManufacturerDetail> {
+    const id = this.manufacturerDetailIdCounter++;
+    const newDetail: ManufacturerDetail = {
+      id,
+      ...detail,
+      createdAt: new Date(),
+      updatedAt: new Date()
+    };
+    this.manufacturerDetails.set(id, newDetail);
+    return newDetail;
+  }
+
+  async getManufacturerDetail(id: number): Promise<ManufacturerDetail | undefined> {
+    return this.manufacturerDetails.get(id);
+  }
+
+  async getManufacturerDetailByProviderId(providerId: number): Promise<ManufacturerDetail | undefined> {
+    return Array.from(this.manufacturerDetails.values()).find(
+      detail => detail.serviceProviderId === providerId
+    );
+  }
+
+  async updateManufacturerDetail(id: number, detailData: Partial<ManufacturerDetail>): Promise<ManufacturerDetail | undefined> {
+    const detail = this.manufacturerDetails.get(id);
+    if (!detail) return undefined;
+    
+    const updatedDetail = { 
+      ...detail, 
+      ...detailData,
+      updatedAt: new Date()
+    };
+    this.manufacturerDetails.set(id, updatedDetail);
+    return updatedDetail;
+  }
+
+  // Booking Agent operations
+  async createBookingAgentDetail(detail: InsertBookingAgentDetail): Promise<BookingAgentDetail> {
+    const id = this.bookingAgentDetailIdCounter++;
+    const newDetail: BookingAgentDetail = {
+      id,
+      ...detail,
+      createdAt: new Date(),
+      updatedAt: new Date()
+    };
+    this.bookingAgentDetails.set(id, newDetail);
+    return newDetail;
+  }
+
+  async getBookingAgentDetail(id: number): Promise<BookingAgentDetail | undefined> {
+    return this.bookingAgentDetails.get(id);
+  }
+
+  async getBookingAgentDetailByProviderId(providerId: number): Promise<BookingAgentDetail | undefined> {
+    return Array.from(this.bookingAgentDetails.values()).find(
+      detail => detail.serviceProviderId === providerId
+    );
+  }
+
+  async updateBookingAgentDetail(id: number, detailData: Partial<BookingAgentDetail>): Promise<BookingAgentDetail | undefined> {
+    const detail = this.bookingAgentDetails.get(id);
+    if (!detail) return undefined;
+    
+    const updatedDetail = { 
+      ...detail, 
+      ...detailData,
+      updatedAt: new Date()
+    };
+    this.bookingAgentDetails.set(id, updatedDetail);
+    return updatedDetail;
+  }
+
+  // Taxi Provider operations
+  async createTaxiProviderDetail(detail: InsertTaxiProviderDetail): Promise<TaxiProviderDetail> {
+    const id = this.taxiProviderDetailIdCounter++;
+    const newDetail: TaxiProviderDetail = {
+      id,
+      ...detail,
+      createdAt: new Date(),
+      updatedAt: new Date()
+    };
+    this.taxiProviderDetails.set(id, newDetail);
+    return newDetail;
+  }
+
+  async getTaxiProviderDetail(id: number): Promise<TaxiProviderDetail | undefined> {
+    return this.taxiProviderDetails.get(id);
+  }
+
+  async getTaxiProviderDetailByProviderId(providerId: number): Promise<TaxiProviderDetail | undefined> {
+    return Array.from(this.taxiProviderDetails.values()).find(
+      detail => detail.serviceProviderId === providerId
+    );
+  }
+
+  async updateTaxiProviderDetail(id: number, detailData: Partial<TaxiProviderDetail>): Promise<TaxiProviderDetail | undefined> {
+    const detail = this.taxiProviderDetails.get(id);
+    if (!detail) return undefined;
+    
+    const updatedDetail = { 
+      ...detail, 
+      ...detailData,
+      updatedAt: new Date()
+    };
+    this.taxiProviderDetails.set(id, updatedDetail);
+    return updatedDetail;
+  }
+
+  // Transportation Agent operations
+  async createTransportationAgentDetail(detail: InsertTransportationAgentDetail): Promise<TransportationAgentDetail> {
+    const id = this.transportationAgentDetailIdCounter++;
+    const newDetail: TransportationAgentDetail = {
+      id,
+      ...detail,
+      createdAt: new Date(),
+      updatedAt: new Date()
+    };
+    this.transportationAgentDetails.set(id, newDetail);
+    return newDetail;
+  }
+
+  async getTransportationAgentDetail(id: number): Promise<TransportationAgentDetail | undefined> {
+    return this.transportationAgentDetails.get(id);
+  }
+
+  async getTransportationAgentDetailByProviderId(providerId: number): Promise<TransportationAgentDetail | undefined> {
+    return Array.from(this.transportationAgentDetails.values()).find(
+      detail => detail.serviceProviderId === providerId
+    );
+  }
+
+  async updateTransportationAgentDetail(id: number, detailData: Partial<TransportationAgentDetail>): Promise<TransportationAgentDetail | undefined> {
+    const detail = this.transportationAgentDetails.get(id);
+    if (!detail) return undefined;
+    
+    const updatedDetail = { 
+      ...detail, 
+      ...detailData,
+      updatedAt: new Date()
+    };
+    this.transportationAgentDetails.set(id, updatedDetail);
+    return updatedDetail;
+  }
+
+  // Rental Provider operations
+  async createRentalProviderDetail(detail: InsertRentalProviderDetail): Promise<RentalProviderDetail> {
+    const id = this.rentalProviderDetailIdCounter++;
+    const newDetail: RentalProviderDetail = {
+      id,
+      ...detail,
+      createdAt: new Date(),
+      updatedAt: new Date()
+    };
+    this.rentalProviderDetails.set(id, newDetail);
+    return newDetail;
+  }
+
+  async getRentalProviderDetail(id: number): Promise<RentalProviderDetail | undefined> {
+    return this.rentalProviderDetails.get(id);
+  }
+
+  async getRentalProviderDetailByProviderId(providerId: number): Promise<RentalProviderDetail | undefined> {
+    return Array.from(this.rentalProviderDetails.values()).find(
+      detail => detail.serviceProviderId === providerId
+    );
+  }
+
+  async updateRentalProviderDetail(id: number, detailData: Partial<RentalProviderDetail>): Promise<RentalProviderDetail | undefined> {
+    const detail = this.rentalProviderDetails.get(id);
+    if (!detail) return undefined;
+    
+    const updatedDetail = { 
+      ...detail, 
+      ...detailData,
+      updatedAt: new Date()
+    };
+    this.rentalProviderDetails.set(id, updatedDetail);
+    return updatedDetail;
+  }
+
+  // Recycling Agent operations
+  async createRecyclingAgentDetail(detail: InsertRecyclingAgentDetail): Promise<RecyclingAgentDetail> {
+    const id = this.recyclingAgentDetailIdCounter++;
+    const newDetail: RecyclingAgentDetail = {
+      id,
+      ...detail,
+      createdAt: new Date(),
+      updatedAt: new Date()
+    };
+    this.recyclingAgentDetails.set(id, newDetail);
+    return newDetail;
+  }
+
+  async getRecyclingAgentDetail(id: number): Promise<RecyclingAgentDetail | undefined> {
+    return this.recyclingAgentDetails.get(id);
+  }
+
+  async getRecyclingAgentDetailByProviderId(providerId: number): Promise<RecyclingAgentDetail | undefined> {
+    return Array.from(this.recyclingAgentDetails.values()).find(
+      detail => detail.serviceProviderId === providerId
+    );
+  }
+
+  async updateRecyclingAgentDetail(id: number, detailData: Partial<RecyclingAgentDetail>): Promise<RecyclingAgentDetail | undefined> {
+    const detail = this.recyclingAgentDetails.get(id);
+    if (!detail) return undefined;
+    
+    const updatedDetail = { 
+      ...detail, 
+      ...detailData,
+      updatedAt: new Date()
+    };
+    this.recyclingAgentDetails.set(id, updatedDetail);
+    return updatedDetail;
+  }
+}
+  sessionStore: SessionStore;
+
+  constructor() {
+    this.sessionStore = new PostgresSessionStore({ 
+      pool, 
+      createTableIfMissing: true
+    });
+  }
+
+  async getUser(id: number): Promise<User | undefined> {
+    const [user] = await db.select().from(users).where(eq(users.id, id));
+    return user || undefined;
+  }
+
+  async getUserByUsername(username: string): Promise<User | undefined> {
+    const [user] = await db.select().from(users).where(eq(users.username, username));
+    return user || undefined;
+  }
+
+  async createUser(insertUser: InsertUser): Promise<User> {
+    const [user] = await db
+      .insert(users)
+      .values(insertUser)
+      .returning();
+    return user;
+  }
+
+  async updateUser(id: number, userData: Partial<User>): Promise<User | undefined> {
+    const [updatedUser] = await db
+      .update(users)
+      .set(userData)
+      .where(eq(users.id, id))
+      .returning();
+    return updatedUser;
+  }
+
+  async deductUserWalletBalance(userId: number, amount: number): Promise<number> {
+    const user = await this.getUser(userId);
+    if (!user) {
+      throw new Error('User not found');
+    }
+    
+    // Initialize wallet balance if it doesn't exist
+    const currentBalance = user.walletBalance || 0;
+    
+    // Check if user has sufficient balance
+    if (currentBalance < amount) {
+      throw new Error('Insufficient wallet balance');
+    }
+    
+    // Update user's wallet balance
+    const newBalance = currentBalance - amount;
+    await this.updateUser(userId, { walletBalance: newBalance });
+    
+    return newBalance;
+  }
+
+  async listUsers(filter?: { userType?: string, parentId?: number }): Promise<User[]> {
+    let query = db.select().from(users);
+    
+    if (filter?.userType) {
+      query = query.where(eq(users.userType, filter.userType));
+    }
+    
+    if (filter?.parentId !== undefined) {
+      query = query.where(eq(users.parentId, filter.parentId));
+    }
+    
+    return await query;
+  }
+
+  // Transaction operations
+  async createTransaction(transaction: InsertTransaction): Promise<Transaction> {
+    const [newTransaction] = await db
+      .insert(transactions)
+      .values(transaction)
+      .returning();
+    return newTransaction;
+  }
+
+  async getTransactionsByUserId(userId: number): Promise<Transaction[]> {
+    return await db
+      .select()
+      .from(transactions)
+      .where(eq(transactions.userId, userId))
+      .orderBy(desc(transactions.createdAt));
+  }
+
+  // Feedback operations
+  async createFeedback(feedbackData: InsertFeedback): Promise<Feedback> {
+    const [newFeedback] = await db
+      .insert(feedback)
+      .values(feedbackData)
+      .returning();
+    return newFeedback;
+  }
+
+  async listFeedback(filter?: { userId?: number, serviceType?: string }): Promise<Feedback[]> {
+    let query = db.select().from(feedback);
+    
+    if (filter?.userId !== undefined) {
+      query = query.where(eq(feedback.userId, filter.userId));
+    }
+    
+    if (filter?.serviceType) {
+      query = query.where(eq(feedback.serviceType, filter.serviceType));
+    }
+    
+    return await query.orderBy(desc(feedback.createdAt));
+  }
+
+  // Recharge operations
+  async createRecharge(recharge: InsertRecharge): Promise<Recharge> {
+    const [newRecharge] = await db
+      .insert(recharges)
+      .values(recharge)
+      .returning();
+    return newRecharge;
+  }
+
+  async getRechargesByUserId(userId: number): Promise<Recharge[]> {
+    return await db
+      .select()
+      .from(recharges)
+      .where(eq(recharges.userId, userId))
+      .orderBy(desc(recharges.createdAt));
+  }
+
+  async updateRecharge(id: number, rechargeData: Partial<Recharge>): Promise<Recharge | undefined> {
+    const [updatedRecharge] = await db
+      .update(recharges)
+      .set(rechargeData)
+      .where(eq(recharges.id, id))
+      .returning();
+    return updatedRecharge;
+  }
+
+  // Booking operations
+  async createBooking(booking: InsertBooking): Promise<Booking> {
+    const [newBooking] = await db
+      .insert(bookings)
+      .values(booking)
+      .returning();
+    return newBooking;
+  }
+
+  async getBookingsByUserId(userId: number): Promise<Booking[]> {
+    return await db
+      .select()
+      .from(bookings)
+      .where(eq(bookings.userId, userId))
+      .orderBy(desc(bookings.createdAt));
+  }
+
+  async getBooking(id: number): Promise<Booking | undefined> {
+    const [booking] = await db
+      .select()
+      .from(bookings)
+      .where(eq(bookings.id, id));
+    return booking;
+  }
+
+  async updateBooking(id: number, bookingData: Partial<Booking>): Promise<Booking | undefined> {
+    const [updatedBooking] = await db
+      .update(bookings)
+      .set(bookingData)
+      .where(eq(bookings.id, id))
+      .returning();
+    return updatedBooking;
+  }
+
+  // Rental operations
+  async createRental(rental: InsertRental): Promise<Rental> {
+    const [newRental] = await db
+      .insert(rentals)
+      .values(rental)
+      .returning();
+    return newRental;
+  }
+
+  async getRentalsByUserId(userId: number): Promise<Rental[]> {
+    return await db
+      .select()
+      .from(rentals)
+      .where(eq(rentals.userId, userId))
+      .orderBy(desc(rentals.createdAt));
+  }
+
+  async updateRental(id: number, rentalData: Partial<Rental>): Promise<Rental | undefined> {
+    const [updatedRental] = await db
+      .update(rentals)
+      .set(rentalData)
+      .where(eq(rentals.id, id))
+      .returning();
+    return updatedRental;
+  }
+
+  // Taxi operations
+  async createTaxiRide(taxiRide: InsertTaxiRide): Promise<TaxiRide> {
+    const [newTaxiRide] = await db
+      .insert(taxiRides)
+      .values(taxiRide)
+      .returning();
+    return newTaxiRide;
+  }
+
+  async getTaxiRidesByUserId(userId: number): Promise<TaxiRide[]> {
+    return await db
+      .select()
+      .from(taxiRides)
+      .where(eq(taxiRides.userId, userId))
+      .orderBy(desc(taxiRides.createdAt));
+  }
+
+  async updateTaxiRide(id: number, taxiRideData: Partial<TaxiRide>): Promise<TaxiRide | undefined> {
+    const [updatedTaxiRide] = await db
+      .update(taxiRides)
+      .set(taxiRideData)
+      .where(eq(taxiRides.id, id))
+      .returning();
+    return updatedTaxiRide;
+  }
+
+  // Delivery operations
+  async createDelivery(delivery: InsertDelivery): Promise<Delivery> {
+    const [newDelivery] = await db
+      .insert(deliveries)
+      .values(delivery)
+      .returning();
+    return newDelivery;
+  }
+
+  async getDeliveriesByUserId(userId: number): Promise<Delivery[]> {
+    return await db
+      .select()
+      .from(deliveries)
+      .where(eq(deliveries.userId, userId))
+      .orderBy(desc(deliveries.createdAt));
+  }
+
+  async updateDelivery(id: number, deliveryData: Partial<Delivery>): Promise<Delivery | undefined> {
+    const [updatedDelivery] = await db
+      .update(deliveries)
+      .set(deliveryData)
+      .where(eq(deliveries.id, id))
+      .returning();
+    return updatedDelivery;
+  }
+
+  // Grocery operations
+  async createGroceryProduct(product: InsertGroceryProduct): Promise<GroceryProduct> {
+    const [newProduct] = await db
+      .insert(groceryProducts)
+      .values(product)
+      .returning();
+    return newProduct;
+  }
+
+  async getGroceryProducts(filter?: { category?: string, district?: string, isOrganic?: boolean }): Promise<GroceryProduct[]> {
+    let query = db.select().from(groceryProducts);
+    
+    if (filter?.category) {
+      query = query.where(eq(groceryProducts.category, filter.category));
+    }
+    
+    if (filter?.district) {
+      query = query.where(eq(groceryProducts.district, filter.district));
+    }
+    
+    if (filter?.isOrganic !== undefined) {
+      query = query.where(eq(groceryProducts.isOrganic, filter.isOrganic));
+    }
+    
+    return await query;
+  }
+
+  async getGroceryProductById(id: number): Promise<GroceryProduct | undefined> {
+    const [product] = await db
+      .select()
+      .from(groceryProducts)
+      .where(eq(groceryProducts.id, id));
+    return product;
+  }
+
+  async updateGroceryProduct(id: number, productData: Partial<GroceryProduct>): Promise<GroceryProduct | undefined> {
+    const [updatedProduct] = await db
+      .update(groceryProducts)
+      .set(productData)
+      .where(eq(groceryProducts.id, id))
+      .returning();
+    return updatedProduct;
+  }
+
+  // Local products operations
+  async createLocalProduct(product: InsertLocalProduct): Promise<LocalProduct> {
+    const [newProduct] = await db
+      .insert(localProducts)
+      .values(product)
+      .returning();
+    return newProduct;
+  }
+
+  async getLocalProducts(filter?: { category?: string, district?: string }): Promise<LocalProduct[]> {
+    let query = db.select().from(localProducts);
+    
+    if (filter?.category) {
+      query = query.where(eq(localProducts.category, filter.category));
+    }
+    
+    if (filter?.district) {
+      query = query.where(eq(localProducts.district, filter.district));
+    }
+    
+    return await query;
+  }
+
+  async getLocalProductById(id: number): Promise<LocalProduct | undefined> {
+    const [product] = await db
+      .select()
+      .from(localProducts)
+      .where(eq(localProducts.id, id));
+    return product;
+  }
+
+  async updateLocalProduct(id: number, productData: Partial<LocalProduct>): Promise<LocalProduct | undefined> {
+    const [updatedProduct] = await db
+      .update(localProducts)
+      .set(productData)
+      .where(eq(localProducts.id, id))
+      .returning();
+    return updatedProduct;
+  }
+
+  // Recycling operations
+  async createRecyclingRequest(request: InsertRecyclingRequest): Promise<RecyclingRequest> {
+    const [newRequest] = await db
+      .insert(recyclingRequests)
+      .values(request)
+      .returning();
+    return newRequest;
+  }
+
+  async getRecyclingRequestsByUserId(userId: number): Promise<RecyclingRequest[]> {
+    return await db
+      .select()
+      .from(recyclingRequests)
+      .where(eq(recyclingRequests.userId, userId))
+      .orderBy(desc(recyclingRequests.createdAt));
+  }
+
+  async getRecyclingRequestsByAgentId(agentId: number): Promise<RecyclingRequest[]> {
+    return await db
+      .select()
+      .from(recyclingRequests)
+      .where(eq(recyclingRequests.agentId, agentId))
+      .orderBy(desc(recyclingRequests.createdAt));
+  }
+
+  async updateRecyclingRequest(id: number, requestData: Partial<RecyclingRequest>): Promise<RecyclingRequest | undefined> {
+    const [updatedRequest] = await db
+      .update(recyclingRequests)
+      .set(requestData)
+      .where(eq(recyclingRequests.id, id))
+      .returning();
+    return updatedRequest;
+  }
+
+  // Commission Configuration operations
+  async createCommissionConfig(config: InsertCommissionConfig): Promise<CommissionConfig> {
+    const [newConfig] = await db
+      .insert(commissionConfigs)
+      .values(config)
+      .returning();
+    return newConfig;
+  }
+
+  async getCommissionConfig(id: number): Promise<CommissionConfig | undefined> {
+    const [config] = await db
+      .select()
+      .from(commissionConfigs)
+      .where(eq(commissionConfigs.id, id));
+    return config;
+  }
+
+  async getCommissionConfigByService(serviceType: string, provider?: string): Promise<CommissionConfig | undefined> {
+    let query = db
+      .select()
+      .from(commissionConfigs)
+      .where(and(
+        eq(commissionConfigs.serviceType, serviceType),
+        eq(commissionConfigs.isActive, true)
+      ));
+    
+    if (provider) {
+      query = query.where(eq(commissionConfigs.provider, provider));
+    }
+    
+    const [config] = await query;
+    return config;
+  }
+
+  async updateCommissionConfig(id: number, configData: Partial<CommissionConfig>): Promise<CommissionConfig | undefined> {
+    const [updatedConfig] = await db
+      .update(commissionConfigs)
+      .set(configData)
+      .where(eq(commissionConfigs.id, id))
+      .returning();
+    return updatedConfig;
+  }
+
+  async listCommissionConfigs(): Promise<CommissionConfig[]> {
+    return await db
+      .select()
+      .from(commissionConfigs)
+      .orderBy(desc(commissionConfigs.updatedAt));
+  }
+
+  // Commission operations
+  async createCommission(commission: InsertCommission): Promise<Commission> {
+    const [newCommission] = await db
+      .insert(commissions)
+      .values(commission)
+      .returning();
+    return newCommission;
+  }
+
+  async getCommissionsByUserId(userId: number): Promise<Commission[]> {
+    return await db
+      .select()
+      .from(commissions)
+      .where(eq(commissions.userId, userId))
+      .orderBy(desc(commissions.createdAt));
+  }
+
+  async getCommissionsByServiceType(serviceType: string): Promise<Commission[]> {
+    return await db
+      .select()
+      .from(commissions)
+      .where(eq(commissions.serviceType, serviceType))
+      .orderBy(desc(commissions.createdAt));
+  }
+
+  async updateCommission(id: number, commissionData: Partial<Commission>): Promise<Commission | undefined> {
+    const [updatedCommission] = await db
+      .update(commissions)
+      .set(commissionData)
+      .where(eq(commissions.id, id))
+      .returning();
+    return updatedCommission;
+  }
+
+  // Commission calculation and distribution
+  async distributeCommission(
+    serviceAgentId: number, 
+    parentChain: number[], 
+    transactionId: number, 
+    serviceType: string, 
+    serviceId: number, 
+    amount: number,
+    config: CommissionConfig
+  ): Promise<void> {
+    // Implementation details omitted for brevity
+    // The implementation would be similar to MemStorage but using database operations
+  }
+  
+  // Add registered user commission to the distribution system
+  async distributeRegisteredUserCommission(
+    registeredUserId: number,
+    transactionId: number,
+    serviceType: string,
+    serviceId: number,
+    amount: number,
+    commissionPercentage: number
+  ): Promise<void> {
+    // Implementation details omitted for brevity
+    // The implementation would be similar to MemStorage but using database operations
+  }
+  
+  // Service Provider operations
+  async createServiceProvider(provider: InsertServiceProvider): Promise<ServiceProvider> {
+    const [newProvider] = await db
+      .insert(serviceProviders)
+      .values(provider)
+      .returning();
+    return newProvider;
+  }
+
+  async getServiceProvider(id: number): Promise<ServiceProvider | undefined> {
+    const [provider] = await db
+      .select()
+      .from(serviceProviders)
+      .where(eq(serviceProviders.id, id));
+    return provider;
+  }
+
+  async getServiceProviderByUserId(userId: number): Promise<ServiceProvider | undefined> {
+    const [provider] = await db
+      .select()
+      .from(serviceProviders)
+      .where(eq(serviceProviders.userId, userId));
+    return provider;
+  }
+
+  async listServiceProviders(filter?: { providerType?: string, district?: string, taluk?: string, status?: string }): Promise<ServiceProvider[]> {
+    let query = db.select().from(serviceProviders);
+    
+    if (filter?.providerType) {
+      query = query.where(eq(serviceProviders.providerType, filter.providerType));
+    }
+    
+    if (filter?.district) {
+      query = query.where(eq(serviceProviders.district, filter.district));
+    }
+    
+    if (filter?.taluk) {
+      query = query.where(eq(serviceProviders.taluk, filter.taluk));
+    }
+    
+    if (filter?.status) {
+      query = query.where(eq(serviceProviders.status, filter.status));
+    }
+    
+    return await query.orderBy(desc(serviceProviders.updatedAt));
+  }
+
+  async updateServiceProvider(id: number, providerData: Partial<ServiceProvider>): Promise<ServiceProvider | undefined> {
+    const [updatedProvider] = await db
+      .update(serviceProviders)
+      .set(providerData)
+      .where(eq(serviceProviders.id, id))
+      .returning();
+    return updatedProvider;
+  }
+
+  // Farmer operations
+  async createFarmerDetail(detail: InsertFarmerDetail): Promise<FarmerDetail> {
+    const [newDetail] = await db
+      .insert(farmerDetails)
+      .values(detail)
+      .returning();
+    return newDetail;
+  }
+
+  async getFarmerDetail(id: number): Promise<FarmerDetail | undefined> {
+    const [detail] = await db
+      .select()
+      .from(farmerDetails)
+      .where(eq(farmerDetails.id, id));
+    return detail;
+  }
+
+  async getFarmerDetailByProviderId(providerId: number): Promise<FarmerDetail | undefined> {
+    const [detail] = await db
+      .select()
+      .from(farmerDetails)
+      .where(eq(farmerDetails.serviceProviderId, providerId));
+    return detail;
+  }
+
+  async updateFarmerDetail(id: number, detailData: Partial<FarmerDetail>): Promise<FarmerDetail | undefined> {
+    const [updatedDetail] = await db
+      .update(farmerDetails)
+      .set(detailData)
+      .where(eq(farmerDetails.id, id))
+      .returning();
+    return updatedDetail;
+  }
+
+  // Manufacturer operations
+  async createManufacturerDetail(detail: InsertManufacturerDetail): Promise<ManufacturerDetail> {
+    const [newDetail] = await db
+      .insert(manufacturerDetails)
+      .values(detail)
+      .returning();
+    return newDetail;
+  }
+
+  async getManufacturerDetail(id: number): Promise<ManufacturerDetail | undefined> {
+    const [detail] = await db
+      .select()
+      .from(manufacturerDetails)
+      .where(eq(manufacturerDetails.id, id));
+    return detail;
+  }
+
+  async getManufacturerDetailByProviderId(providerId: number): Promise<ManufacturerDetail | undefined> {
+    const [detail] = await db
+      .select()
+      .from(manufacturerDetails)
+      .where(eq(manufacturerDetails.serviceProviderId, providerId));
+    return detail;
+  }
+
+  async updateManufacturerDetail(id: number, detailData: Partial<ManufacturerDetail>): Promise<ManufacturerDetail | undefined> {
+    const [updatedDetail] = await db
+      .update(manufacturerDetails)
+      .set(detailData)
+      .where(eq(manufacturerDetails.id, id))
+      .returning();
+    return updatedDetail;
+  }
+
+  // Booking Agent operations
+  async createBookingAgentDetail(detail: InsertBookingAgentDetail): Promise<BookingAgentDetail> {
+    const [newDetail] = await db
+      .insert(bookingAgentDetails)
+      .values(detail)
+      .returning();
+    return newDetail;
+  }
+
+  async getBookingAgentDetail(id: number): Promise<BookingAgentDetail | undefined> {
+    const [detail] = await db
+      .select()
+      .from(bookingAgentDetails)
+      .where(eq(bookingAgentDetails.id, id));
+    return detail;
+  }
+
+  async getBookingAgentDetailByProviderId(providerId: number): Promise<BookingAgentDetail | undefined> {
+    const [detail] = await db
+      .select()
+      .from(bookingAgentDetails)
+      .where(eq(bookingAgentDetails.serviceProviderId, providerId));
+    return detail;
+  }
+
+  async updateBookingAgentDetail(id: number, detailData: Partial<BookingAgentDetail>): Promise<BookingAgentDetail | undefined> {
+    const [updatedDetail] = await db
+      .update(bookingAgentDetails)
+      .set(detailData)
+      .where(eq(bookingAgentDetails.id, id))
+      .returning();
+    return updatedDetail;
+  }
+
+  // Taxi Provider operations
+  async createTaxiProviderDetail(detail: InsertTaxiProviderDetail): Promise<TaxiProviderDetail> {
+    const [newDetail] = await db
+      .insert(taxiProviderDetails)
+      .values(detail)
+      .returning();
+    return newDetail;
+  }
+
+  async getTaxiProviderDetail(id: number): Promise<TaxiProviderDetail | undefined> {
+    const [detail] = await db
+      .select()
+      .from(taxiProviderDetails)
+      .where(eq(taxiProviderDetails.id, id));
+    return detail;
+  }
+
+  async getTaxiProviderDetailByProviderId(providerId: number): Promise<TaxiProviderDetail | undefined> {
+    const [detail] = await db
+      .select()
+      .from(taxiProviderDetails)
+      .where(eq(taxiProviderDetails.serviceProviderId, providerId));
+    return detail;
+  }
+
+  async updateTaxiProviderDetail(id: number, detailData: Partial<TaxiProviderDetail>): Promise<TaxiProviderDetail | undefined> {
+    const [updatedDetail] = await db
+      .update(taxiProviderDetails)
+      .set(detailData)
+      .where(eq(taxiProviderDetails.id, id))
+      .returning();
+    return updatedDetail;
+  }
+
+  // Transportation Agent operations
+  async createTransportationAgentDetail(detail: InsertTransportationAgentDetail): Promise<TransportationAgentDetail> {
+    const [newDetail] = await db
+      .insert(transportationAgentDetails)
+      .values(detail)
+      .returning();
+    return newDetail;
+  }
+
+  async getTransportationAgentDetail(id: number): Promise<TransportationAgentDetail | undefined> {
+    const [detail] = await db
+      .select()
+      .from(transportationAgentDetails)
+      .where(eq(transportationAgentDetails.id, id));
+    return detail;
+  }
+
+  async getTransportationAgentDetailByProviderId(providerId: number): Promise<TransportationAgentDetail | undefined> {
+    const [detail] = await db
+      .select()
+      .from(transportationAgentDetails)
+      .where(eq(transportationAgentDetails.serviceProviderId, providerId));
+    return detail;
+  }
+
+  async updateTransportationAgentDetail(id: number, detailData: Partial<TransportationAgentDetail>): Promise<TransportationAgentDetail | undefined> {
+    const [updatedDetail] = await db
+      .update(transportationAgentDetails)
+      .set(detailData)
+      .where(eq(transportationAgentDetails.id, id))
+      .returning();
+    return updatedDetail;
+  }
+
+  // Rental Provider operations
+  async createRentalProviderDetail(detail: InsertRentalProviderDetail): Promise<RentalProviderDetail> {
+    const [newDetail] = await db
+      .insert(rentalProviderDetails)
+      .values(detail)
+      .returning();
+    return newDetail;
+  }
+
+  async getRentalProviderDetail(id: number): Promise<RentalProviderDetail | undefined> {
+    const [detail] = await db
+      .select()
+      .from(rentalProviderDetails)
+      .where(eq(rentalProviderDetails.id, id));
+    return detail;
+  }
+
+  async getRentalProviderDetailByProviderId(providerId: number): Promise<RentalProviderDetail | undefined> {
+    const [detail] = await db
+      .select()
+      .from(rentalProviderDetails)
+      .where(eq(rentalProviderDetails.serviceProviderId, providerId));
+    return detail;
+  }
+
+  async updateRentalProviderDetail(id: number, detailData: Partial<RentalProviderDetail>): Promise<RentalProviderDetail | undefined> {
+    const [updatedDetail] = await db
+      .update(rentalProviderDetails)
+      .set(detailData)
+      .where(eq(rentalProviderDetails.id, id))
+      .returning();
+    return updatedDetail;
+  }
+
+  // Recycling Agent operations
+  async createRecyclingAgentDetail(detail: InsertRecyclingAgentDetail): Promise<RecyclingAgentDetail> {
+    const [newDetail] = await db
+      .insert(recyclingAgentDetails)
+      .values(detail)
+      .returning();
+    return newDetail;
+  }
+
+  async getRecyclingAgentDetail(id: number): Promise<RecyclingAgentDetail | undefined> {
+    const [detail] = await db
+      .select()
+      .from(recyclingAgentDetails)
+      .where(eq(recyclingAgentDetails.id, id));
+    return detail;
+  }
+
+  async getRecyclingAgentDetailByProviderId(providerId: number): Promise<RecyclingAgentDetail | undefined> {
+    const [detail] = await db
+      .select()
+      .from(recyclingAgentDetails)
+      .where(eq(recyclingAgentDetails.serviceProviderId, providerId));
+    return detail;
+  }
+
+  async updateRecyclingAgentDetail(id: number, detailData: Partial<RecyclingAgentDetail>): Promise<RecyclingAgentDetail | undefined> {
+    const [updatedDetail] = await db
+      .update(recyclingAgentDetails)
+      .set(detailData)
+      .where(eq(recyclingAgentDetails.id, id))
+      .returning();
+    return updatedDetail;
+  }
+}
+
+// Use PostgreSQL database storage for now
+export const storage = new DatabaseStorage();

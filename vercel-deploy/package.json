@@ -1,0 +1,12 @@
+{
+  "name": "nalamini-api-minimal",
+  "version": "1.0.0",
+  "description": "Minimal API for Nalamini Service Platform",
+  "main": "api/index.js",
+  "scripts": {
+    "start": "node api/index.js"
+  },
+  "engines": {
+    "node": ">=14.0.0"
+  }
+}

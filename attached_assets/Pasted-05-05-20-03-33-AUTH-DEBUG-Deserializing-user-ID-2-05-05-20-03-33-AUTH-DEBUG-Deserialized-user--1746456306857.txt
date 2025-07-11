@@ -1,0 +1,194 @@
+05-05 20:03:33
+[AUTH DEBUG] Deserializing user ID: 2
+05-05 20:03:33
+[AUTH DEBUG] Deserialized user: ID: 2, Username: Selvi
+05-05 20:03:33
+[SUBCATEGORY API] Received query params: { parentCategoryId: '4' }
+05-05 20:03:33
+[SUBCATEGORY API] Authentication status: Authenticated as Selvi
+05-05 20:03:33
+[SUBCATEGORY API] Storage type: DatabaseStorage
+05-05 20:03:33
+[SUBCATEGORY API] ⚠️ Oils category detected - special handling enabled
+05-05 20:03:33
+[SUBCATEGORY API] Looking up subcategories with parentCategoryId: 4, isActive: true
+05-05 20:03:33
+[SUBCATEGORY API] Using direct database query for Oils category
+05-05 20:03:33
+[SUBCATEGORY API] Direct SQL query found 4 subcategories for Oils
+05-05 20:03:33
+[SUBCATEGORY API] Found 4 subcategories for parentCategoryId 4: Coconut oil (ID: 5), Groundnut oil (ID: 6), Olive oil (ID: 7), Palm oil (ID: 11)
+05-05 20:03:33
+2:33:33 PM [express] GET /api/grocery/subcategories 304 in 205ms :: [{"id":5,"name":"Coconut oil","d…
+
+Wrap
+
+Colors
+Commit
+Attempt to resolve a reported issue and ensure thorough system validation
+Perform a system validation to address a previously reported issue.
+
+PI
+
+ping2niraj
+ping2niraj
+committed
+10 days ago
+1 parent 
+Filter changed files
+Showing 0 changed files.
+Database connected
+37 tables
+31.63MB/10GB
+Schema	Name	Type	Owner	Size	Description
+public	analytics_daily	table	neondb_owner	16 kB	
+public	analytics_daily_id_seq	sequence	neondb_owner	8192 bytes	
+public	analytics_events	table	neondb_owner	16 kB	
+public	analytics_events_id_seq	sequence	neondb_owner	8192 bytes	
+public	booking_agent_details	table	neondb_owner	24 kB	
+Docs
+Powered by
+
+
+All
+
+Connected
+
+Replit
+
+External
+Connected Services
+Connect your Repl to a variety of Replit's services and third-party services using .
+Never share or expose tokens in code. .
+Replit Key-Value Store
+Database
+Replit Services
+Connect to Replit's storage and auth services.
+Replit Key-Value Store
+Database
+Object Storage
+Authentication
+External Services
+Connect your App to a variety of third-party services using .
+Never share or expose tokens in code. .
+OpenAI
+Google AI (Gemini)
+Anthropic (Claude)
+Perplexity
+Mistral AI
+Google Sheets
+Google Docs
+Slack
+Discord
+Stripe
+HubSpot
+User Settings
+The following settings apply to your account and will be used across all your Apps.
+Default Layout
+Change the layout of the editor.
+
+side-by-side
+Font Size
+Change the font size of the editor.
+
+normal
+Accept Suggestion on Commit Character
+Controls whether suggestions should be accepted on commit characters. For example, in JavaScript, the semi-colon (;) can be a commit character that accepts the suggestion and types the character.
+
+Auto close brackets
+Controls whether the editor should automatically close brackets after the user adds an opening bracket.
+
+Indentation Detection
+Automatically detect indentation settings when opening a file.
+
+Format Pasted Text Indentation
+Automatically format the indentation of pasted text.
+
+Indentation Character
+The character used for indenting lines.
+
+spaces
+Indentation Size
+The number of columns taken up by an indentation level.
+2
+Wrapping
+Change whether the editor wraps lines or not.
+
+soft wrap
+Minimap
+Change the minimap display.
+
+none
+Rulers
+Keybinds
+Use another keyboard mapping
+
+default
+Multiselect Modifier Key
+Modifier key for selecting multiple items in the filetree.
+
+Alt
+Filetree Git Status
+Show the Git status of files in the file tree.
+
+AI Code Completion
+Code completion provides inline “ghost text” suggestions while you code.
+Press tab or swipe right on your mobile device to accept.
+
+Code Intelligence
+Code intelligence gives you autocomplete, as well as hints as you type.
+
+Semantic Tokens
+Enables enhanced syntax highlighting from language servers.
+
+Show Whitespace
+Make whitespace characters visible, such as tabs and spaces.
+Leading
+
+Enclosed
+
+Trailing
+
+Selected
+
+Accessible Terminal Output
+Enable this setting to use a screen reader. Warning: this can negatively affect performance.
+
+Shell Bell Audible Indicator
+Play sound in the Shell on issues like a failed tab completion.
+
+Automatic Preview
+Open a web preview automatically when a port is open
+
+Forward Opened Ports Automatically
+Automatically configure detected newly opened ports.
+
+all ports except localhost
+Theme
+select a theme
+light
+Chat Audio Notification
+Play a sound when you receive a new chat message.
+
+Agent Audio Notification
+Play a sound when the Agent needs your response.
+
+Agent Push Notification
+Send a push notification when the Agent needs your response.
+
+Assistant Push Notification
+Send a push notification when the Assistant needs your response.
+
+Port :5000 opened on
+*.py
+5 results in 3 files
+245
+*.py
+249
+*.py
+251
+*.py
+270
+*.py
+219
+*.py

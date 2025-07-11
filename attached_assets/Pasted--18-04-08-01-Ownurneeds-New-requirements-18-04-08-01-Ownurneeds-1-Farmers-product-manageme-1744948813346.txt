@@ -1,0 +1,17 @@
+[18/04, 08:01] Ownurneeds: New requirements :
+[18/04, 08:01] Ownurneeds: 1. Farmers product management
+[18/04, 08:07] Ownurneeds: Your understanding is right here. One add on here, consider that service provider(farmer) doesn't have products listed. He should raise a service provider request to update the required product
+[18/04, 08:09] Ownurneeds: 2. Multiple providers
+[18/04, 08:23] Ownurneeds: Your understanding is right. Consider that 2 service provider(farmer) sells same product. My suggested way to handle this is as follows. We can update the product as sub category. For example if tomato is sold by 2 farmers, this will be displayed as tomato -1 and tomato-2 in the shopping cart. They should provide their own product image, price, their located district, taluk and pincode, quantity available. Now, these data will be visible to customer in the shopping cart and he will. Be able to decide which product he should purchase. Also as explained earlier if the service provider wants to deliver on his own, it should update the service area clearly. That is, district, taluk and the various pincodes where he can supply.
+[18/04, 08:25] Ownurneeds: Answers for your questions :
+[18/04, 08:25] Ownurneeds: Product model relationship
+[18/04, 08:26] Ownurneeds: * farmers can only sell products listed by admin. Else he should raise a request to admin to add a new product
+[18/04, 08:28] Ownurneeds: * i guess the answer is yes. The same product can be sold by multiple farmers
+[18/04, 08:29] Ownurneeds: 2. Price structure
+[18/04, 08:34] Ownurneeds: * lets give this option for the customer to select. Customer can select based on product price, area available, whether farmers supplies to his residence. If farmers does not deliver, customer should request for a transport agent and pay him somee charges.  Eg. Rs. 5 per kg
+[18/04, 08:36] Ownurneeds: * customer should see all the options like product-1, product-2, area available, delivery options and select his own
+[18/04, 08:37] Ownurneeds: 4). Delivery area selection
+[18/04, 08:38] Ownurneeds: * yes. Farmers should be allowed to select multiple district, taluks and pincode
+[18/04, 08:39] Ownurneeds: * yes. I need hierarchical selection
+[18/04, 08:39] Ownurneeds: 5). Orderfulfillment
+[18/04, 08:50] Ownurneeds: * if customer places arder, this will be intimated to particular pin code agent where the customer resides, his taluk manager, branch manager and the service provider (farmer) whose product is requested. When pincode agent approves the order, farmer can directly deliver or request for a delivery agent. Then pincode agent should trigger a delivery agent if required. Once customer receives the product, he should update the status as resolved and submit the cash to delivery agent. Once order is resolved, taluk manager should check everything and move to order clsure approved. Then the admin will decipate the amount in the wallet to everyone involved

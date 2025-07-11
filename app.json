@@ -1,0 +1,17 @@
+{
+  "name": "Nalamini Service Platform",
+  "description": "A comprehensive multi-service platform for Tamil Nadu",
+  "repository": "",
+  "keywords": ["node", "express", "typescript", "react"],
+  "env": {
+    "NODE_ENV": {
+      "description": "Environment for the application",
+      "value": "production"
+    }
+  },
+  "buildpacks": [
+    {
+      "url": "heroku/nodejs"
+    }
+  ]
+}

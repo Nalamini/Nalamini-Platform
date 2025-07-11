@@ -1,0 +1,58 @@
+17:46:51
+[AUTH DEBUG] Deserializing user ID: 2
+05-06 17:46:51
+[AUTH DEBUG] Deserializing user ID: 2
+05-06 17:46:51
+[AUTH DEBUG] Deserialized user: ID: 2, Username: Selvi
+05-06 17:46:51
+[AUTH DEBUG] Deserialized user: ID: 2, Username: Selvi
+05-06 17:46:51
+12:16:51 PM [express] GET /api/notifications/unread-count 304 in 180ms :: {"count":"0"}
+05-06 17:46:51
+12:16:51 PM [express] GET /api/notifications 304 in 186ms :: []
+05-06 17:46:51
+[AUTH DEBUG] Deserializing user ID: 2
+05-06 17:46:51
+[AUTH DEBUG] Deserialized user: ID: 2, Username: Selvi
+05-06 17:46:51
+12:16:51 PM [express] GET /api/grocery/categories 304 in 326ms :: [{"id":23,"name":"Abcdefg","descrip…
+05-06 17:46:51
+[AUTH DEBUG] Deserializing user ID: 2
+05-06 17:46:51
+[AUTH DEBUG] Deserializing user ID: 2
+05-06 17:46:51
+[AUTH DEBUG] Deserializing user ID: 2
+05-06 17:46:51
+[AUTH DEBUG] Deserializing user ID: 2
+05-06 17:46:51
+[AUTH DEBUG] Deserialized user: ID: 2, Username: Selvi
+05-06 17:46:51
+[SUBCATEGORY API] Request for subcategories of category 1
+05-06 17:46:51
+[AUTH DEBUG] Deserialized user: ID: 2, Username: Selvi
+05-06 17:46:51
+[SUBCATEGORY API] Request for subcategories of category 3
+05-06 17:46:51
+[AUTH DEBUG] Deserialized user: ID: 2, Username: Selvi
+05-06 17:46:51
+[SUBCATEGORY API] Request for subcategories of category 4
+05-06 17:46:51
+[AUTH DEBUG] Deserialized user: ID: 2, Username: Selvi
+05-06 17:46:51
+[SUBCATEGORY API] Request for subcategories of category 2
+05-06 17:46:51
+[SUBCATEGORY API] No subcategories found for category 3, using fallbacks
+05-06 17:46:51
+[SUBCATEGORY API] Found 1 subcategories for parentCategoryId 1
+05-06 17:46:51
+[SUBCATEGORY API] Found 4 subcategories for parentCategoryId 4
+05-06 17:46:51
+[SUBCATEGORY API] Found 8 subcategories for parentCategoryId 2
+05-06 17:46:51
+12:16:51 PM [express] GET /api/grocery/subcategories-public 200 in 189ms :: [{"id":10,"name":"Pineapp…
+05-06 17:46:51
+12:16:51 PM [express] GET /api/grocery/subcategories-public 200 in 184ms :: [{"id":12,"name":"Rice","…
+05-06 17:46:51
+12:16:51 PM [express] GET /api/grocery/subcategories-public 200 in 189ms :: [{"id":5,"name":"Coconut …
+05-06 17:46:51
+12:16:51 PM [express] GET

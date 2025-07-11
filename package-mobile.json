@@ -1,0 +1,37 @@
+{
+  "name": "nalamini-mobile",
+  "version": "1.0.0",
+  "description": "Mobile app dependencies for Nalamini Service Platform",
+  "scripts": {
+    "android": "cap run android",
+    "android:build": "cap build android",
+    "android:open": "cap open android",
+    "ios": "cap run ios",
+    "ios:build": "cap build ios", 
+    "ios:open": "cap open ios",
+    "capacitor:sync": "cap sync",
+    "capacitor:copy": "cap copy",
+    "build:mobile": "npm run build && cap copy && cap sync"
+  },
+  "dependencies": {
+    "@capacitor/android": "^5.0.0",
+    "@capacitor/app": "^5.0.0",
+    "@capacitor/camera": "^5.0.0",
+    "@capacitor/cli": "^5.0.0",
+    "@capacitor/core": "^5.0.0",
+    "@capacitor/geolocation": "^5.0.0",
+    "@capacitor/haptics": "^5.0.0",
+    "@capacitor/keyboard": "^5.0.0",
+    "@capacitor/local-notifications": "^5.0.0",
+    "@capacitor/network": "^5.0.0",
+    "@capacitor/preferences": "^5.0.0",
+    "@capacitor/push-notifications": "^5.0.0",
+    "@capacitor/screen-reader": "^5.0.0",
+    "@capacitor/share": "^5.0.0",
+    "@capacitor/splash-screen": "^5.0.0",
+    "@capacitor/status-bar": "^5.0.0"
+  },
+  "devDependencies": {
+    "@capacitor/assets": "^3.0.0"
+  }
+}

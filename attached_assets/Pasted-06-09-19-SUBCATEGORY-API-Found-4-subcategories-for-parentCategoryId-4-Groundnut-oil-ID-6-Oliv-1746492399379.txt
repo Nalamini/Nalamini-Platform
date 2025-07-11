@@ -1,0 +1,50 @@
+06:09:19
+[SUBCATEGORY API] Found 4 subcategories for parentCategoryId 4: Groundnut oil (ID: 6), Olive oil (ID: 7), Palm oil (ID: 11), Coconut oil (ID: 5)
+05-06 06:09:19
+[SUBCATEGORY API] Direct SQL query found 4 subcategories for Oils
+05-06 06:09:19
+Generated fallback images successfully
+05-06 06:09:19
+[SUBCATEGORY API] Using hardcoded SVG for Groundnut oil: /uploads/fallback/groundnut-oil.svg
+05-06 06:09:19
+[SUBCATEGORY API] Using hardcoded SVG for Olive oil: /uploads/fallback/olive-oil.svg
+05-06 06:09:19
+[SUBCATEGORY API] Using hardcoded SVG for Palm oil: /uploads/fallback/palm-oil.svg
+05-06 06:09:19
+[SUBCATEGORY API] Using hardcoded SVG for Coconut oil: /uploads/fallback/coconut-oil.svg
+05-06 06:09:19
+[SUBCATEGORY API] Found 4 subcategories for parentCategoryId 4: Groundnut oil (ID: 6), Olive oil (ID: 7), Palm oil (ID: 11), Coconut oil (ID: 5)
+05-06 06:09:20
+12:39:20 AM [express] GET /api/grocery/subcategories 200 in 195ms :: [{"id":6,"name":"Groundnut oil",…
+05-06 06:09:20
+12:39:20 AM [express] GET /api/grocery/subcategories 200 in 200ms :: [{"id":6,"name":"Groundnut oil",…
+05-06 06:09:20
+12:39:20 AM [express] GET /api/grocery/subcategories 304 in 206ms :: [{"id":6,"name":"Groundnut oil",…
+05-06 06:09:20
+[AUTH DEBUG] Deserializing user ID: 2
+05-06 06:09:20
+[AUTH DEBUG] Deserializing user ID: 2
+05-06 06:09:20
+[AUTH DEBUG] Deserializing user ID: 2
+05-06 06:09:20
+[AUTH DEBUG] Deserializing user ID: 2
+05-06 06:09:20
+[AUTH DEBUG] Deserialized user: ID: 2, Username: Selvi
+05-06 06:09:20
+[AUTH DEBUG] Deserialized user: ID: 2, Username: Selvi
+05-06 06:09:20
+[AUTH DEBUG] Deserialized user: ID: 2, Username: Selvi
+05-06 06:09:20
+[AUTH DEBUG] Deserialized user: ID: 2, Username: Selvi
+05-06 06:09:20
+12:39:20 AM [express] GET /api/svg/fallback/coconut-oil 200 in 136ms
+05-06 06:09:20
+12:39:20 AM [express] GET /api/svg/fallback/palm-oil 200 in 143ms
+05-06 06:09:20
+12:39:20 AM [express] GET /api/svg/fallback/groundnut-oil 200 in 145ms
+05-06 06:09:20
+12:39:20 AM [express] GET /api/svg/fallback/olive-oil 200 in 158ms
+05-06 06:13:32
+system: received signal terminated
+05-06 06:13:32
+command finished with error

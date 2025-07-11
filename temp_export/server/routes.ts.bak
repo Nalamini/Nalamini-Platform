@@ -1,0 +1,3744 @@
+import type { Express } from "express";
+import { createServer, type Server } from "http";
+import { storage } from "./storage";
+import { setupAuth } from "./auth";
+import { z } from "zod";
+import multer from "multer";
+import path from "path";
+import fs from "fs";
+import { 
+  insertUserSchema, insertFeedbackSchema, insertRechargeSchema, insertBookingSchema, 
+  insertRentalSchema, insertTaxiRideSchema, insertDeliverySchema, insertRecyclingRequestSchema, 
+  insertGroceryProductSchema, insertLocalProductSchema, insertCommissionConfigSchema, 
+  insertCommissionSchema, insertServiceProviderSchema, InsertServiceProvider,
+  insertManagerApplicationSchema, ManagerApplication, insertGroceryCategorySchema,
+  insertGrocerySubCategorySchema, insertFarmerProductListingSchema, insertDeliveryAreaSchema,
+  insertProductRequestSchema, insertGroceryOrderSchema, insertGroceryOrderItemSchema,
+  FarmerProductListing, ProductRequest
+} from "@shared/schema";
+import { randomUUID } from 'crypto';
+import { rechargeService } from './services/rechargeService';
+import { paymentService } from './services/paymentService';
+import { walletService } from './services/walletService';
+import { utilityService, UtilityType } from './services/utilityService';
+import { travelService, BookingType } from './services/travelService';
+import { commissionService } from './services/commissionService';
+
+export async function registerRoutes(app: Express): Promise<Server> {
+  // Set up authentication routes
+  setupAuth(app);
+
+  // Type guard for authenticated user
+  function ensureUserExists(req: any): asserts req is any & { user: Express.User } {
+    if (!req.user) {
+      throw new Error("User not authenticated");
+    }
+  }
+  
+  // Middleware to check if user is authenticated
+  const isAuthenticated = (req: any, res: any, next: any) => {
+    if (req.isAuthenticated()) {
+      return next();
+    }
+    res.status(401).json({ message: "Not authenticated" });
+  };
+
+  // Middleware to check if user has specific role
+  const hasRole = (roles: string[]) => {
+    return (req: any, res: any, next: any) => {
+      if (req.isAuthenticated() && roles.includes(req.user.userType)) {
+        return next();
+      }
+      res.status(403).json({ message: "Insufficient permissions" });
+    };
+  };
+
+  // Management routes
+  app.get("/api/managers/branch", isAuthenticated, async (req, res) => {
+    try {
+      const user = req.user as any;
+      
+      // Only admin can see all branch managers
+      if (user.userType !== "admin") {
+        return res.status(403).json({ message: "Insufficient permissions" });
+      }
+
+      const branchManagers = await storage.listUsers({ userType: "branch_manager" });
+      res.json(branchManagers);
+    } catch (error) {
+      res.status(500).json({ message: "Failed to fetch branch managers" });
+    }
+  });
+
+  app.get("/api/managers/taluk", isAuthenticated, async (req, res) => {
+    try {
+      const user = req.user as any;
+      let filter: { userType: string, parentId?: number } = { userType: "taluk_manager" };
+      
+      // Branch managers should only see their own taluk managers
+      if (user.userType === "branch_manager") {
+        filter.parentId = user.id;
+      } else if (user.userType !== "admin") {
+        return res.status(403).json({ message: "Insufficient permissions" });
+      }
+      
+      const talukManagers = await storage.listUsers(filter);
+      res.json(talukManagers);
+    } catch (error) {
+      res.status(500).json({ message: "Failed to fetch taluk managers" });
+    }
+  });
+
+  app.get("/api/agents", isAuthenticated, async (req, res) => {
+    try {
+      const user = req.user as any;
+      let filter: { userType: string, parentId?: number } = { userType: "service_agent" };
+      
+      // Taluk managers should only see their own service agents
+      if (user.userType === "taluk_manager") {
+        filter.parentId = user.id;
+      } else if (user.userType === "branch_manager") {
+        // For branch managers, get all taluk managers under them first
+        const talukManagers = await storage.listUsers({ userType: "taluk_manager", parentId: user.id });
+        const talukManagerIds = talukManagers.map(tm => tm.id);
+        
+        // Then get all service agents under those taluk managers
+        const allAgents = await storage.listUsers({ userType: "service_agent" });
+        const filteredAgents = allAgents.filter(agent => agent.parentId && talukManagerIds.includes(agent.parentId));
+        return res.json(filteredAgents);
+      } else if (user.userType !== "admin") {
+        return res.status(403).json({ message: "Insufficient permissions" });
+      }
+      
+      const serviceAgents = await storage.listUsers(filter);
+      res.json(serviceAgents);
+    } catch (error) {
+      res.status(500).json({ message: "Failed to fetch service agents" });
+    }
+  });
+
+  app.post("/api/managers/branch", isAuthenticated, hasRole(["admin"]), async (req, res) => {
+    try {
+      const userSchema = insertUserSchema.extend({
+        password: z.string().min(6),
+        userType: z.literal("branch_manager"),
+        district: z.string().min(1)
+      });
+      
+      const userData = userSchema.parse(req.body);
+      userData.parentId = req.user.id; // Set admin as parent
+      
+      const branchManager = await storage.createUser(userData);
+      
+      // Remove password from response
+      const { password, ...managerWithoutPassword } = branchManager;
+      res.status(201).json(managerWithoutPassword);
+    } catch (error) {
+      res.status(400).json({ message: "Invalid data for branch manager" });
+    }
+  });
+
+  app.post("/api/managers/taluk", isAuthenticated, hasRole(["admin", "branch_manager"]), async (req, res) => {
+    try {
+      const userSchema = insertUserSchema.extend({
+        password: z.string().min(6),
+        userType: z.literal("taluk_manager"),
+        district: z.string().min(1),
+        taluk: z.string().min(1)
+      });
+      
+      const userData = userSchema.parse(req.body);
+      userData.parentId = req.user.id; // Set current user as parent
+      
+      const talukManager = await storage.createUser(userData);
+      
+      // Remove password from response
+      const { password, ...managerWithoutPassword } = talukManager;
+      res.status(201).json(managerWithoutPassword);
+    } catch (error) {
+      res.status(400).json({ message: "Invalid data for taluk manager" });
+    }
+  });
+
+  app.post("/api/agents", isAuthenticated, hasRole(["admin", "branch_manager", "taluk_manager"]), async (req, res) => {
+    try {
+      const userSchema = insertUserSchema.extend({
+        password: z.string().min(6),
+        userType: z.literal("service_agent"),
+        pincode: z.string().min(6).max(6)
+      });
+      
+      const userData = userSchema.parse(req.body);
+      userData.parentId = req.user.id; // Set current user as parent
+      
+      const serviceAgent = await storage.createUser(userData);
+      
+      // Remove password from response
+      const { password, ...agentWithoutPassword } = serviceAgent;
+      res.status(201).json(agentWithoutPassword);
+    } catch (error) {
+      res.status(400).json({ message: "Invalid data for service agent" });
+    }
+  });
+  
+  // Manager Applications routes
+  app.post("/api/manager-applications", async (req, res) => {
+    try {
+      const applicationData = insertManagerApplicationSchema.parse(req.body);
+      
+      // Create manager application
+      const managerApplication = await storage.createManagerApplication(applicationData);
+      
+      // For security, don't return the password in the response
+      const { password, ...applicationWithoutPassword } = managerApplication;
+      
+      res.status(201).json({
+        success: true,
+        message: "Your application has been submitted successfully. We will review it shortly.",
+        application: applicationWithoutPassword
+      });
+    } catch (error) {
+      console.error('Manager application submission error:', error);
+      res.status(400).json({ 
+        success: false,
+        message: "Invalid application data. Please check your information and try again."
+      });
+    }
+  });
+  
+  app.get("/api/manager-applications", isAuthenticated, hasRole(["admin"]), async (req, res) => {
+    try {
+      // Parse query parameters
+      const status = req.query.status as string | undefined;
+      const managerType = req.query.type as string | undefined;
+      
+      // Set up filter
+      const filter: { status?: string, managerType?: string } = {};
+      if (status) filter.status = status;
+      if (managerType) filter.managerType = managerType;
+      
+      // Get applications
+      const applications = await storage.getManagerApplications(filter);
+      
+      // Remove passwords from response
+      const safeApplications = applications.map(app => {
+        const { password, ...appWithoutPassword } = app;
+        return appWithoutPassword;
+      });
+      
+      res.json(safeApplications);
+    } catch (error) {
+      console.error('Error fetching manager applications:', error);
+      res.status(500).json({ message: "Failed to fetch manager applications" });
+    }
+  });
+  
+  app.get("/api/manager-applications/:id", isAuthenticated, hasRole(["admin"]), async (req, res) => {
+    try {
+      const { id } = req.params;
+      const application = await storage.getManagerApplication(parseInt(id));
+      
+      if (!application) {
+        return res.status(404).json({ message: "Manager application not found" });
+      }
+      
+      // Remove password from response
+      const { password, ...applicationWithoutPassword } = application;
+      
+      res.json(applicationWithoutPassword);
+    } catch (error) {
+      console.error('Error fetching manager application:', error);
+      res.status(500).json({ message: "Failed to fetch manager application" });
+    }
+  });
+  
+  app.patch("/api/manager-applications/:id", isAuthenticated, hasRole(["admin"]), async (req, res) => {
+    try {
+      const { id } = req.params;
+      const { status, notes } = req.body;
+      
+      if (!status) {
+        return res.status(400).json({ message: "Status is required" });
+      }
+      
+      // Validate status
+      if (!["approved", "rejected", "pending"].includes(status)) {
+        return res.status(400).json({ message: "Invalid status value" });
+      }
+      
+      const updatedData: Partial<ManagerApplication> = {
+        status,
+        notes: notes || null
+      };
+      
+      // If approving, set the approvedBy field to the current admin's ID
+      if (status === "approved") {
+        updatedData.approvedBy = req.user.id;
+      }
+      
+      const application = await storage.updateManagerApplication(parseInt(id), updatedData);
+      
+      if (!application) {
+        return res.status(404).json({ message: "Manager application not found" });
+      }
+      
+      // TODO: If approved, create a new user based on the application data
+      if (status === "approved") {
+        try {
+          // Create user account based on manager application
+          const userData = {
+            username: application.username,
+            password: application.password, // Password is already in the application
+            fullName: application.fullName,
+            email: application.email,
+            phone: application.phone,
+            userType: application.managerType,
+            district: application.district,
+            taluk: application.taluk,
+            pincode: application.pincode,
+            parentId: req.user.id, // Set admin as parent
+            createdAt: new Date()
+          };
+          
+          // Create the user
+          await storage.createUser(userData);
+          
+          // TODO: Send email notification to the applicant (future enhancement)
+        } catch (userCreationError) {
+          console.error('Error creating user from application:', userCreationError);
+          // Even if user creation fails, don't fail the entire request
+          // The admin can always retry the approval later
+        }
+      }
+      
+      // Remove password from response
+      const { password, ...applicationWithoutPassword } = application;
+      
+      res.json({
+        success: true,
+        message: `Application ${status}`,
+        application: applicationWithoutPassword
+      });
+    } catch (error) {
+      console.error('Error updating manager application:', error);
+      res.status(500).json({ message: "Failed to update manager application" });
+    }
+  });
+
+  // Feedback routes
+  app.post("/api/feedback", isAuthenticated, async (req, res) => {
+    try {
+      const feedbackData = insertFeedbackSchema.parse({
+        ...req.body,
+        userId: req.user.id
+      });
+      
+      const feedback = await storage.createFeedback(feedbackData);
+      res.status(201).json(feedback);
+    } catch (error) {
+      res.status(400).json({ message: "Invalid feedback data" });
+    }
+  });
+
+  app.get("/api/feedback", isAuthenticated, async (req, res) => {
+    try {
+      const user = req.user as any;
+      let filter: { userId?: number, serviceType?: string } = {};
+      
+      // Regular users can only see their own feedback
+      if (user.userType === "customer") {
+        filter.userId = user.id;
+      }
+      
+      // Filter by service type if provided
+      if (req.query.serviceType) {
+        filter.serviceType = req.query.serviceType as string;
+      }
+      
+      const feedback = await storage.listFeedback(filter);
+      res.json(feedback);
+    } catch (error) {
+      res.status(500).json({ message: "Failed to fetch feedback" });
+    }
+  });
+
+  // Wallet routes
+  app.get("/api/wallet", isAuthenticated, async (req, res) => {
+    try {
+      const balance = await walletService.getBalance(req.user.id);
+      const transactions = await walletService.getTransactionHistory(req.user.id);
+      
+      res.json({
+        balance,
+        transactions
+      });
+    } catch (error) {
+      console.error('Wallet fetch error:', error);
+      res.status(500).json({ message: error instanceof Error ? error.message : "Failed to fetch wallet data" });
+    }
+  });
+
+  // Add funds to wallet (for admin)
+  app.post("/api/wallet/add-funds", isAuthenticated, hasRole(["admin"]), async (req, res) => {
+    try {
+      const { userId, amount, reason } = req.body;
+      
+      if (!userId || !amount || !reason) {
+        return res.status(400).json({ message: "Missing required fields" });
+      }
+      
+      const newBalance = await walletService.addFundsByAdmin(
+        req.user.id,
+        userId,
+        amount,
+        reason
+      );
+      
+      res.json({
+        success: true,
+        message: "Funds added successfully",
+        balance: newBalance
+      });
+    } catch (error) {
+      console.error('Add funds error:', error);
+      res.status(500).json({ message: error instanceof Error ? error.message : "Failed to add funds" });
+    }
+  });
+  
+  // Wallet recharge via Razorpay
+  app.post("/api/wallet/recharge", isAuthenticated, async (req, res) => {
+    try {
+      const { amount } = req.body;
+      
+      if (!amount || amount < 100) {
+        return res.status(400).json({ message: "Minimum recharge amount is ₹100" });
+      }
+      
+      const order = await walletService.createRechargeOrder(req.user.id, amount);
+      
+      res.json(order);
+    } catch (error) {
+      console.error('Wallet recharge error:', error);
+      res.status(500).json({ message: error instanceof Error ? error.message : "Failed to initiate wallet recharge" });
+    }
+  });
+  
+  // Verify wallet recharge payment and add funds
+  app.post("/api/wallet/verify-payment", isAuthenticated, async (req, res) => {
+    try {
+      const result = await walletService.verifyPaymentAndAddFunds(req.user.id, req.body);
+      res.json(result);
+    } catch (error) {
+      console.error('Payment verification error:', error);
+      res.status(400).json({ message: error instanceof Error ? error.message : "Failed to verify payment" });
+    }
+  });
+  
+  // For backward compatibility - to be deprecated
+  app.post("/api/wallet/transaction", isAuthenticated, hasRole(["admin"]), async (req, res) => {
+    try {
+      const { userId, amount, type, description, serviceType } = req.body;
+      
+      if (!userId || !amount || !type || !description) {
+        return res.status(400).json({ message: "Missing required fields" });
+      }
+      
+      // Use wallet service based on transaction type
+      let newBalance: number;
+      if (type === "credit") {
+        newBalance = await walletService.addFunds(
+          userId,
+          amount,
+          serviceType || 'manual',
+          description
+        );
+      } else if (type === "debit") {
+        newBalance = await walletService.deductFunds(
+          userId,
+          amount,
+          serviceType || 'manual',
+          description
+        );
+      } else {
+        return res.status(400).json({ message: "Invalid transaction type" });
+      }
+      
+      res.json({
+        success: true,
+        message: "Transaction completed successfully",
+        balance: newBalance
+      });
+    } catch (error) {
+      console.error('Wallet transaction error:', error);
+      res.status(500).json({ message: error instanceof Error ? error.message : "Failed to create transaction" });
+    }
+  });
+
+  // Recharge routes
+  app.post("/api/recharge", isAuthenticated, async (req, res) => {
+    try {
+      const rechargeData = insertRechargeSchema.parse({
+        ...req.body,
+        userId: req.user.id,
+        status: "pending" // Always start with pending status
+      });
+      
+      try {
+        // Check if user has sufficient wallet balance using the wallet service
+        const balance = await walletService.getBalance(req.user.id);
+        if (balance < rechargeData.amount) {
+          return res.status(400).json({ 
+            message: "Insufficient wallet balance", 
+            currentBalance: balance,
+            requiredAmount: rechargeData.amount
+          });
+        }
+      } catch (walletError) {
+        console.error('Wallet error:', walletError);
+        return res.status(400).json({ message: "Could not verify wallet balance" });
+      }
+      
+      // Create recharge request in our database
+      const recharge = await storage.createRecharge(rechargeData);
+      
+      // Process the recharge with the recharge service
+      const result = await rechargeService.processMobileRecharge({
+        mobileNumber: rechargeData.mobileNumber,
+        amount: rechargeData.amount,
+        provider: rechargeData.provider,
+        transactionId: recharge.id.toString()
+      });
+      
+      // Update the recharge status based on the API response
+      const status = result.success ? "completed" : "failed";
+      const updatedRecharge = await storage.updateRecharge(recharge.id, { 
+        status,
+        completedAt: result.success ? new Date() : undefined
+      });
+      
+      if (result.success) {
+        try {
+          // Deduct from wallet balance if successful using wallet service
+          await walletService.deductFunds(
+            req.user.id, 
+            rechargeData.amount, 
+            'recharge', 
+            `Mobile recharge for ${rechargeData.mobileNumber}`
+          );
+          
+          // TODO: Calculate and distribute commissions
+          // This would call: calculateCommissions('recharge', recharge.id, rechargeData.amount, rechargeData.provider)
+        } catch (walletError) {
+          console.error('Error deducting from wallet:', walletError);
+          // Even if wallet deduction fails, the recharge was processed successfully
+          // Log the error but don't fail the entire request
+        }
+      }
+      
+      res.status(201).json({
+        ...updatedRecharge,
+        apiResponse: result.message
+      });
+    } catch (error) {
+      console.error('Recharge error:', error);
+      res.status(400).json({ message: error instanceof Error ? error.message : "Invalid recharge data" });
+    }
+  });
+
+  app.get("/api/recharge", isAuthenticated, async (req, res) => {
+    try {
+      const recharges = await storage.getRechargesByUserId(req.user.id);
+      res.json(recharges);
+    } catch (error) {
+      res.status(500).json({ message: "Failed to fetch recharges" });
+    }
+  });
+  
+  // Get available plans for a provider
+  app.get("/api/recharge/plans/:provider", async (req, res) => {
+    try {
+      const { provider } = req.params;
+      const circle = req.query.circle as string | undefined;
+      
+      const plans = await rechargeService.getAvailablePlans(provider, circle);
+      res.json(plans);
+    } catch (error) {
+      console.error('Error fetching plans:', error);
+      res.status(500).json({ message: "Failed to fetch plans" });
+    }
+  });
+  
+  // Payment routes for wallet recharge - using the wallet service
+  app.post("/api/payment/create-order", isAuthenticated, async (req, res) => {
+    try {
+      const { amount } = req.body;
+      
+      // Use wallet service to create the recharge order
+      const order = await walletService.createRechargeOrder(req.user.id, amount);
+      res.json(order);
+    } catch (error) {
+      console.error('Payment order creation error:', error);
+      res.status(400).json({ message: error instanceof Error ? error.message : "Failed to create payment order" });
+    }
+  });
+  
+  // Verify payment and update wallet
+  app.post("/api/payment/verify", isAuthenticated, async (req, res) => {
+    try {
+      // Use the walletService to handle payment verification and adding funds
+      const result = await walletService.verifyPaymentAndAddFunds(req.user.id, req.body);
+      res.json(result);
+    } catch (error) {
+      console.error('Payment verification error:', error);
+      res.status(400).json({ message: error instanceof Error ? error.message : "Failed to verify payment" });
+    }
+  });
+
+  // Booking routes
+  app.post("/api/booking", isAuthenticated, async (req, res) => {
+    try {
+      const bookingData = insertBookingSchema.parse({
+        ...req.body,
+        userId: req.user.id,
+        status: "pending" // Always start with pending status
+      });
+      
+      // Check if user has sufficient wallet balance
+      const user = await storage.getUser(req.user.id);
+      if (!user || (user.walletBalance || 0) < bookingData.amount) {
+        return res.status(400).json({ message: "Insufficient wallet balance" });
+      }
+      
+      // Create booking request
+      const booking = await storage.createBooking(bookingData);
+      
+      // Update booking to confirmed (in a real system, this would be asynchronous)
+      const updatedBooking = await storage.updateBooking(booking.id, { status: "confirmed" });
+      
+      // Deduct from wallet balance
+      const newBalance = (user.walletBalance || 0) - bookingData.amount;
+      await storage.updateUser(user.id, { walletBalance: newBalance });
+      
+      // Create transaction record
+      await storage.createTransaction({
+        userId: user.id,
+        amount: bookingData.amount,
+        type: "debit",
+        description: `${bookingData.bookingType} booking from ${bookingData.origin || ''} to ${bookingData.destination || ''}`,
+        serviceType: "booking"
+      });
+      
+      res.status(201).json(updatedBooking);
+    } catch (error) {
+      res.status(400).json({ message: "Invalid booking data" });
+    }
+  });
+
+  app.get("/api/booking", isAuthenticated, async (req, res) => {
+    try {
+      const bookings = await storage.getBookingsByUserId(req.user.id);
+      res.json(bookings);
+    } catch (error) {
+      res.status(500).json({ message: "Failed to fetch bookings" });
+    }
+  });
+
+  // Rental routes
+  app.post("/api/rental", isAuthenticated, async (req, res) => {
+    try {
+      const rentalData = insertRentalSchema.parse({
+        ...req.body,
+        userId: req.user.id,
+        status: "pending" // Always start with pending status
+      });
+      
+      // Check if user has sufficient wallet balance
+      const user = await storage.getUser(req.user.id);
+      if (!user || (user.walletBalance || 0) < rentalData.amount) {
+        return res.status(400).json({ message: "Insufficient wallet balance" });
+      }
+      
+      // Create rental request
+      const rental = await storage.createRental(rentalData);
+      
+      // Update rental to active (in a real system, this would be asynchronous)
+      const updatedRental = await storage.updateRental(rental.id, { status: "active" });
+      
+      // Deduct from wallet balance
+      const newBalance = (user.walletBalance || 0) - rentalData.amount;
+      await storage.updateUser(user.id, { walletBalance: newBalance });
+      
+      // Create transaction record
+      await storage.createTransaction({
+        userId: user.id,
+        amount: rentalData.amount,
+        type: "debit",
+        description: `Rental for ${rentalData.itemName}`,
+        serviceType: "rental"
+      });
+      
+      res.status(201).json(updatedRental);
+    } catch (error) {
+      res.status(400).json({ message: "Invalid rental data" });
+    }
+  });
+
+  app.get("/api/rental", isAuthenticated, async (req, res) => {
+    try {
+      const rentals = await storage.getRentalsByUserId(req.user.id);
+      res.json(rentals);
+    } catch (error) {
+      res.status(500).json({ message: "Failed to fetch rentals" });
+    }
+  });
+
+  // Taxi routes
+  app.post("/api/taxi", isAuthenticated, async (req, res) => {
+    try {
+      const taxiRideData = insertTaxiRideSchema.parse({
+        ...req.body,
+        userId: req.user.id,
+        status: "pending" // Always start with pending status
+      });
+      
+      // Check if user has sufficient wallet balance
+      const user = await storage.getUser(req.user.id);
+      if (!user || (user.walletBalance || 0) < taxiRideData.amount) {
+        return res.status(400).json({ message: "Insufficient wallet balance" });
+      }
+      
+      // Create taxi ride request
+      const taxiRide = await storage.createTaxiRide(taxiRideData);
+      
+      // Update taxi ride to active (in a real system, this would be asynchronous)
+      const updatedTaxiRide = await storage.updateTaxiRide(taxiRide.id, { status: "active" });
+      
+      // Deduct from wallet balance
+      const newBalance = (user.walletBalance || 0) - taxiRideData.amount;
+      await storage.updateUser(user.id, { walletBalance: newBalance });
+      
+      // Create transaction record
+      await storage.createTransaction({
+        userId: user.id,
+        amount: taxiRideData.amount,
+        type: "debit",
+        description: `Taxi ride from ${taxiRideData.pickup} to ${taxiRideData.dropoff}`,
+        serviceType: "taxi"
+      });
+      
+      res.status(201).json(updatedTaxiRide);
+    } catch (error) {
+      res.status(400).json({ message: "Invalid taxi ride data" });
+    }
+  });
+
+  app.get("/api/taxi", isAuthenticated, async (req, res) => {
+    try {
+      const taxiRides = await storage.getTaxiRidesByUserId(req.user.id);
+      res.json(taxiRides);
+    } catch (error) {
+      res.status(500).json({ message: "Failed to fetch taxi rides" });
+    }
+  });
+
+  // Delivery routes
+  app.post("/api/delivery", isAuthenticated, async (req, res) => {
+    try {
+      const deliveryData = insertDeliverySchema.parse({
+        ...req.body,
+        userId: req.user.id,
+        status: "pending" // Always start with pending status
+      });
+      
+      // Check if user has sufficient wallet balance
+      const user = await storage.getUser(req.user.id);
+      if (!user || (user.walletBalance || 0) < deliveryData.amount) {
+        return res.status(400).json({ message: "Insufficient wallet balance" });
+      }
+      
+      // Create delivery request
+      const delivery = await storage.createDelivery(deliveryData);
+      
+      // Update delivery to picked_up (in a real system, this would be asynchronous)
+      const updatedDelivery = await storage.updateDelivery(delivery.id, { status: "picked_up" });
+      
+      // Deduct from wallet balance
+      const newBalance = (user.walletBalance || 0) - deliveryData.amount;
+      await storage.updateUser(user.id, { walletBalance: newBalance });
+      
+      // Create transaction record
+      await storage.createTransaction({
+        userId: user.id,
+        amount: deliveryData.amount,
+        type: "debit",
+        description: `Delivery from ${deliveryData.pickupAddress} to ${deliveryData.deliveryAddress}`,
+        serviceType: "delivery"
+      });
+      
+      res.status(201).json(updatedDelivery);
+    } catch (error) {
+      res.status(400).json({ message: "Invalid delivery data" });
+    }
+  });
+
+  app.get("/api/delivery", isAuthenticated, async (req, res) => {
+    try {
+      const deliveries = await storage.getDeliveriesByUserId(req.user.id);
+      res.json(deliveries);
+    } catch (error) {
+      res.status(500).json({ message: "Failed to fetch deliveries" });
+    }
+  });
+
+  // Grocery routes
+  app.post("/api/grocery/product", isAuthenticated, hasRole(["admin", "branch_manager", "taluk_manager", "farmer"]), async (req, res) => {
+    try {
+      const productData = insertGroceryProductSchema.parse(req.body);
+      
+      // If farmer, ensure they can only create products with their ID
+      if (req.user.userType === "farmer") {
+        productData.farmerId = req.user.id;
+        // Set default status for farmer-created products to pending
+        if (!productData.status) {
+          productData.status = "pending";
+        }
+      } else {
+        // For admins and managers, default to active if not specified
+        if (!productData.status) {
+          productData.status = "active";
+        }
+      }
+      
+      // Set default delivery option if not provided
+      if (!productData.deliveryOption) {
+        productData.deliveryOption = "both";
+      }
+      
+      const product = await storage.createGroceryProduct(productData);
+      res.status(201).json(product);
+    } catch (error) {
+      console.error("Error creating product:", error);
+      res.status(400).json({ message: "Invalid grocery product data" });
+    }
+  });
+
+  app.get("/api/grocery/products", async (req, res) => {
+    try {
+      const filter: any = {};
+      
+      if (req.query.category) {
+        filter.category = req.query.category as string;
+      }
+      
+      if (req.query.district) {
+        filter.district = req.query.district as string;
+      }
+      
+      if (req.query.isOrganic) {
+        filter.isOrganic = req.query.isOrganic === "true";
+      }
+
+      if (req.query.farmerId) {
+        filter.farmerId = parseInt(req.query.farmerId as string);
+      }
+
+      if (req.query.status) {
+        filter.status = req.query.status as string;
+      }
+      
+      // Filter by available areas (e.g., pincode, district, city)
+      if (req.query.availableAreas) {
+        filter.availableAreas = req.query.availableAreas as string;
+      }
+      
+      // Filter by delivery option (e.g., pickup, delivery, both)
+      if (req.query.deliveryOption) {
+        filter.deliveryOption = req.query.deliveryOption as string;
+      }
+      
+      // Debug the storage object
+      console.log("Storage methods:", Object.keys(storage));
+      console.log("Storage keys in DatabaseStorage:", Object.getOwnPropertyNames(Object.getPrototypeOf(storage)));
+      console.log("Type of getGroceryProducts:", typeof storage.getGroceryProducts);
+      
+      if (typeof storage.getGroceryProducts !== 'function') {
+        throw new Error("getGroceryProducts method is not defined on the storage object");
+      }
+      
+      const products = await storage.getGroceryProducts(filter);
+      res.json(products);
+    } catch (error) {
+      console.error("Error fetching products:", error);
+      console.error("Error details:", JSON.stringify(error, Object.getOwnPropertyNames(error)));
+      res.status(500).json({ message: "Failed to fetch grocery products" });
+    }
+  });
+
+  // Get current farmer's products
+  app.get("/api/grocery/my-products", isAuthenticated, hasRole(["farmer"]), async (req, res) => {
+    try {
+      const products = await storage.getGroceryProducts({ farmerId: req.user.id });
+      res.json(products);
+    } catch (error) {
+      console.error("Error fetching farmer products:", error);
+      res.status(500).json({ message: "Failed to fetch your products" });
+    }
+  });
+
+  app.get("/api/grocery/product/:id", async (req, res) => {
+    try {
+      const productId = parseInt(req.params.id);
+      const product = await storage.getGroceryProductById(productId);
+      
+      if (!product) {
+        return res.status(404).json({ message: "Product not found" });
+      }
+      
+      res.json(product);
+    } catch (error) {
+      console.error("Error fetching product by ID:", error);
+      res.status(500).json({ message: "Failed to fetch product" });
+    }
+  });
+  
+  // Update a grocery product
+  app.put("/api/grocery/product/:id", isAuthenticated, async (req, res) => {
+    try {
+      const productId = parseInt(req.params.id);
+      const product = await storage.getGroceryProductById(productId);
+      
+      if (!product) {
+        return res.status(404).json({ message: "Product not found" });
+      }
+      
+      // Only allow farmers to update their own products or admin/managers to update any product
+      if (req.user.userType === "farmer" && product.farmerId !== req.user.id) {
+        return res.status(403).json({ message: "You don't have permission to update this product" });
+      }
+      
+      // Validate update data
+      const updateData = req.body;
+      
+      // Don't allow farmers to change the farmerId
+      if (req.user.userType === "farmer") {
+        delete updateData.farmerId;
+      }
+      
+      const updatedProduct = await storage.updateGroceryProduct(productId, updateData);
+      res.json(updatedProduct);
+    } catch (error) {
+      console.error("Error updating product:", error);
+      res.status(500).json({ message: "Failed to update product" });
+    }
+  });
+  
+  // Delete a grocery product (soft delete by setting status to inactive)
+  app.delete("/api/grocery/product/:id", isAuthenticated, async (req, res) => {
+    try {
+      const productId = parseInt(req.params.id);
+      const product = await storage.getGroceryProductById(productId);
+      
+      if (!product) {
+        return res.status(404).json({ message: "Product not found" });
+      }
+      
+      // Only allow farmers to delete their own products or admin/managers to delete any product
+      if (req.user.userType === "farmer" && product.farmerId !== req.user.id) {
+        return res.status(403).json({ message: "You don't have permission to delete this product" });
+      }
+      
+      // Soft delete by setting status to inactive
+      const updatedProduct = await storage.updateGroceryProduct(productId, { isActive: false });
+      res.json({ message: "Product deleted successfully" });
+    } catch (error) {
+      console.error("Error deleting product:", error);
+      res.status(500).json({ message: "Failed to delete product" });
+    }
+  });
+  
+  // Admin: Approve/reject a product
+  app.put("/api/grocery/product/:id/status", isAuthenticated, hasRole(["admin", "branch_manager", "taluk_manager"]), async (req, res) => {
+    try {
+      const productId = parseInt(req.params.id);
+      const { status } = req.body;
+      
+      if (!status || !["active", "inactive", "pending"].includes(status)) {
+        return res.status(400).json({ message: "Invalid status" });
+      }
+      
+      const product = await storage.getGroceryProductById(productId);
+      
+      if (!product) {
+        return res.status(404).json({ message: "Product not found" });
+      }
+      
+      const updatedProduct = await storage.updateGroceryProduct(productId, { status });
+      res.json(updatedProduct);
+    } catch (error) {
+      console.error("Error updating product status:", error);
+      res.status(500).json({ message: "Failed to update product status" });
+    }
+  });
+  
+  // Upload product image (endpoint that will be implemented later)
+  app.post("/api/grocery/product/:id/image", isAuthenticated, async (req, res) => {
+    res.status(501).json({ message: "Image upload not implemented yet" });
+  });
+  
+  // Grocery Category Routes
+  
+  // Create a grocery category
+  app.post("/api/admin/grocery/categories", isAuthenticated, hasRole(["admin"]), async (req, res) => {
+    try {
+      console.log("Received grocery category data:", JSON.stringify(req.body));
+      const categoryData = insertGroceryCategorySchema.parse(req.body);
+      console.log("Validated grocery category data:", JSON.stringify(categoryData));
+      
+      const newCategory = await storage.createGroceryCategory(categoryData);
+      res.status(201).json(newCategory);
+    } catch (error) {
+      console.error('Error creating grocery category:', error);
+      // Provide more detailed error information
+      if (error.errors) {
+        console.error('Validation errors:', JSON.stringify(error.errors));
+        return res.status(400).json({ 
+          message: "Invalid grocery category data", 
+          errors: error.errors 
+        });
+      } else if (error.message) {
+        console.error('Error message:', error.message);
+        return res.status(400).json({ 
+          message: "Invalid grocery category data", 
+          error: error.message 
+        });
+      }
+      res.status(400).json({ message: "Invalid grocery category data" });
+    }
+  });
+  
+  // For backward compatibility
+  app.post("/api/grocery/category", isAuthenticated, hasRole(["admin"]), async (req, res) => {
+    try {
+      console.log("Received grocery category data (backward compatibility):", JSON.stringify(req.body));
+      const categoryData = insertGroceryCategorySchema.parse(req.body);
+      console.log("Validated grocery category data (backward compatibility):", JSON.stringify(categoryData));
+      
+      const newCategory = await storage.createGroceryCategory(categoryData);
+      res.status(201).json(newCategory);
+    } catch (error) {
+      console.error('Error creating grocery category (backward compatibility):', error);
+      // Provide more detailed error information
+      if (error.errors) {
+        console.error('Validation errors (backward compatibility):', JSON.stringify(error.errors));
+        return res.status(400).json({ 
+          message: "Invalid grocery category data", 
+          errors: error.errors 
+        });
+      } else if (error.message) {
+        console.error('Error message (backward compatibility):', error.message);
+        return res.status(400).json({ 
+          message: "Invalid grocery category data", 
+          error: error.message 
+        });
+      }
+      res.status(400).json({ message: "Invalid grocery category data" });
+    }
+  });
+  
+  // Get all grocery categories
+  app.get("/api/admin/grocery/categories", async (req, res) => {
+    try {
+      // Get isActive filter from query params, default to showing all categories
+      const isActive = req.query.isActive === "true" ? true : 
+                       req.query.isActive === "false" ? false : 
+                       undefined;
+      
+      const filter = isActive !== undefined ? { isActive } : {};
+      const categories = await storage.getGroceryCategories(filter);
+      res.json(categories);
+    } catch (error) {
+      console.error('Error fetching grocery categories:', error);
+      res.status(500).json({ message: "Failed to fetch grocery categories" });
+    }
+  });
+  
+  // For backward compatibility
+  app.get("/api/grocery/categories", async (req, res) => {
+    try {
+      // Get isActive filter from query params, default to true (active)
+      const isActive = req.query.status === "inactive" ? false : true;
+      
+      const categories = await storage.getGroceryCategories({ isActive });
+      res.json(categories);
+    } catch (error) {
+      console.error('Error fetching grocery categories:', error);
+      res.status(500).json({ message: "Failed to fetch grocery categories" });
+    }
+  });
+  
+  // Get a specific grocery category
+  app.get("/api/grocery/category/:id", async (req, res) => {
+    try {
+      const { id } = req.params;
+      const category = await storage.getGroceryCategory(parseInt(id));
+      
+      if (!category) {
+        return res.status(404).json({ message: "Grocery category not found" });
+      }
+      
+      res.json(category);
+    } catch (error) {
+      console.error('Error fetching grocery category:', error);
+      res.status(500).json({ message: "Failed to fetch grocery category" });
+    }
+  });
+  
+  // Update a grocery category
+  app.patch("/api/admin/grocery/categories/:id", isAuthenticated, hasRole(["admin"]), async (req, res) => {
+    try {
+      const { id } = req.params;
+      const categoryData = req.body;
+      
+      // Validate the category exists
+      const category = await storage.getGroceryCategory(parseInt(id));
+      if (!category) {
+        return res.status(404).json({ message: "Grocery category not found" });
+      }
+      
+      const updatedCategory = await storage.updateGroceryCategory(parseInt(id), categoryData);
+      res.json(updatedCategory);
+    } catch (error) {
+      console.error('Error updating grocery category:', error);
+      res.status(400).json({ message: "Invalid grocery category data" });
+    }
+  });
+  
+  // For backward compatibility
+  app.put("/api/grocery/category/:id", isAuthenticated, hasRole(["admin"]), async (req, res) => {
+    try {
+      const { id } = req.params;
+      const categoryData = req.body;
+      
+      // Validate the category exists
+      const category = await storage.getGroceryCategory(parseInt(id));
+      if (!category) {
+        return res.status(404).json({ message: "Grocery category not found" });
+      }
+      
+      const updatedCategory = await storage.updateGroceryCategory(parseInt(id), categoryData);
+      res.json(updatedCategory);
+    } catch (error) {
+      console.error('Error updating grocery category:', error);
+      res.status(400).json({ message: "Invalid grocery category data" });
+    }
+  });
+  
+  // Delete a grocery category (soft delete by setting status to inactive)
+  app.delete("/api/admin/grocery/categories/:id", isAuthenticated, hasRole(["admin"]), async (req, res) => {
+    try {
+      const { id } = req.params;
+      
+      // Validate the category exists
+      const category = await storage.getGroceryCategory(parseInt(id));
+      if (!category) {
+        return res.status(404).json({ message: "Grocery category not found" });
+      }
+      
+      // Update status to inactive
+      const updatedCategory = await storage.updateGroceryCategory(parseInt(id), { isActive: false });
+      res.json({ 
+        message: "Grocery category deactivated successfully", 
+        category: updatedCategory 
+      });
+    } catch (error) {
+      console.error('Error deleting grocery category:', error);
+      res.status(500).json({ message: "Failed to delete grocery category" });
+    }
+  });
+  
+  // For backward compatibility
+  app.delete("/api/grocery/category/:id", isAuthenticated, hasRole(["admin"]), async (req, res) => {
+    try {
+      const { id } = req.params;
+      
+      // Validate the category exists
+      const category = await storage.getGroceryCategory(parseInt(id));
+      if (!category) {
+        return res.status(404).json({ message: "Grocery category not found" });
+      }
+      
+      // Update status to inactive
+      const updatedCategory = await storage.updateGroceryCategory(parseInt(id), { isActive: false });
+      res.json({ 
+        message: "Grocery category deactivated successfully", 
+        category: updatedCategory 
+      });
+    } catch (error) {
+      console.error('Error deleting grocery category:', error);
+      res.status(500).json({ message: "Failed to delete grocery category" });
+    }
+  });
+  
+  // Grocery Subcategory Routes
+  
+  // Create a grocery subcategory
+  app.post("/api/admin/grocery/subcategories", isAuthenticated, hasRole(["admin"]), async (req, res) => {
+    try {
+      const subcategoryData = insertGrocerySubCategorySchema.parse(req.body);
+      
+      // Verify that the parent category exists and is active
+      const parentCategory = await storage.getGroceryCategory(subcategoryData.parentCategoryId);
+      if (!parentCategory) {
+        return res.status(400).json({ message: "Parent category not found" });
+      }
+      
+      if (!parentCategory.isActive) {
+        return res.status(400).json({ message: "Cannot add subcategory to inactive category" });
+      }
+      
+      const newSubcategory = await storage.createGrocerySubCategory(subcategoryData);
+      res.status(201).json(newSubcategory);
+    } catch (error) {
+      console.error('Error creating grocery subcategory:', error);
+      res.status(400).json({ message: "Invalid grocery subcategory data" });
+    }
+  });
+  
+  // For backward compatibility
+  app.post("/api/grocery/subcategory", isAuthenticated, hasRole(["admin"]), async (req, res) => {
+    try {
+      const subcategoryData = insertGrocerySubCategorySchema.parse(req.body);
+      
+      // Verify that the parent category exists and is active
+      const parentCategory = await storage.getGroceryCategory(subcategoryData.parentCategoryId);
+      if (!parentCategory) {
+        return res.status(400).json({ message: "Parent category not found" });
+      }
+      
+      if (!parentCategory.isActive) {
+        return res.status(400).json({ message: "Cannot add subcategory to inactive category" });
+      }
+      
+      const newSubcategory = await storage.createGrocerySubCategory(subcategoryData);
+      res.status(201).json(newSubcategory);
+    } catch (error) {
+      console.error('Error creating grocery subcategory:', error);
+      res.status(400).json({ message: "Invalid grocery subcategory data" });
+    }
+  });
+  
+  // Get all grocery subcategories or filter by category
+  app.get("/api/admin/grocery/subcategories", async (req, res) => {
+    try {
+      // Get parentCategoryId and isActive filters from query params
+      const parentCategoryId = req.query.parentCategoryId ? 
+        parseInt(req.query.parentCategoryId as string) : 
+        (req.query.categoryId ? parseInt(req.query.categoryId as string) : undefined); // Supporting both new and old query param names
+      const isActive = req.query.isActive === "true" ? true : 
+                       req.query.isActive === "false" ? false : 
+                       undefined;
+      
+      const filter: { parentCategoryId?: number, isActive?: boolean } = {};
+      if (parentCategoryId) {
+        filter.parentCategoryId = parentCategoryId;
+      }
+      if (isActive !== undefined) {
+        filter.isActive = isActive;
+      }
+      
+      const subcategories = await storage.getGrocerySubCategories(filter);
+      res.json(subcategories);
+    } catch (error) {
+      console.error('Error fetching grocery subcategories:', error);
+      res.status(500).json({ message: "Failed to fetch grocery subcategories" });
+    }
+  });
+  
+  // For backward compatibility
+  app.get("/api/grocery/subcategories", async (req, res) => {
+    try {
+      // Get parentCategoryId and isActive filters from query params
+      const parentCategoryId = req.query.parentCategoryId ? 
+        parseInt(req.query.parentCategoryId as string) : 
+        (req.query.categoryId ? parseInt(req.query.categoryId as string) : undefined); // Supporting both new and old query param names
+      
+      // Default to active (isActive: true) when status is not specified or is "active"
+      const isActive = req.query.status === "inactive" ? false : true;
+      
+      const filter: { parentCategoryId?: number, isActive?: boolean } = { isActive };
+      if (parentCategoryId) {
+        filter.parentCategoryId = parentCategoryId;
+      }
+      
+      const subcategories = await storage.getGrocerySubCategories(filter);
+      res.json(subcategories);
+    } catch (error) {
+      console.error('Error fetching grocery subcategories:', error);
+      res.status(500).json({ message: "Failed to fetch grocery subcategories" });
+    }
+  });
+  
+  // Get a specific grocery subcategory
+  app.get("/api/admin/grocery/subcategories/:id", async (req, res) => {
+    try {
+      const { id } = req.params;
+      const subcategory = await storage.getGrocerySubCategory(parseInt(id));
+      
+      if (!subcategory) {
+        return res.status(404).json({ message: "Grocery subcategory not found" });
+      }
+      
+      res.json(subcategory);
+    } catch (error) {
+      console.error('Error fetching grocery subcategory:', error);
+      res.status(500).json({ message: "Failed to fetch grocery subcategory" });
+    }
+  });
+  
+  // For backward compatibility
+  app.get("/api/grocery/subcategory/:id", async (req, res) => {
+    try {
+      const { id } = req.params;
+      const subcategory = await storage.getGrocerySubCategory(parseInt(id));
+      
+      if (!subcategory) {
+        return res.status(404).json({ message: "Grocery subcategory not found" });
+      }
+      
+      res.json(subcategory);
+    } catch (error) {
+      console.error('Error fetching grocery subcategory:', error);
+      res.status(500).json({ message: "Failed to fetch grocery subcategory" });
+    }
+  });
+  
+  // Update a grocery subcategory
+  app.put("/api/admin/grocery/subcategories/:id", isAuthenticated, hasRole(["admin"]), async (req, res) => {
+    try {
+      const { id } = req.params;
+      const subcategoryData = req.body;
+      
+      // Validate the subcategory exists
+      const subcategory = await storage.getGrocerySubCategory(parseInt(id));
+      if (!subcategory) {
+        return res.status(404).json({ message: "Grocery subcategory not found" });
+      }
+      
+      // If parentCategoryId is being updated, check that the new parent category exists and is active
+      if (subcategoryData.parentCategoryId && subcategoryData.parentCategoryId !== subcategory.parentCategoryId) {
+        const parentCategory = await storage.getGroceryCategory(subcategoryData.parentCategoryId);
+        if (!parentCategory) {
+          return res.status(400).json({ message: "Parent category not found" });
+        }
+        
+        if (!parentCategory.isActive) {
+          return res.status(400).json({ message: "Cannot move subcategory to inactive category" });
+        }
+      }
+      
+      const updatedSubcategory = await storage.updateGrocerySubCategory(parseInt(id), subcategoryData);
+      res.json(updatedSubcategory);
+    } catch (error) {
+      console.error('Error updating grocery subcategory:', error);
+      res.status(400).json({ message: "Invalid grocery subcategory data" });
+    }
+  });
+  
+  // For backward compatibility
+  app.put("/api/grocery/subcategory/:id", isAuthenticated, hasRole(["admin"]), async (req, res) => {
+    try {
+      const { id } = req.params;
+      const subcategoryData = req.body;
+      
+      // Validate the subcategory exists
+      const subcategory = await storage.getGrocerySubCategory(parseInt(id));
+      if (!subcategory) {
+        return res.status(404).json({ message: "Grocery subcategory not found" });
+      }
+      
+      // If parentCategoryId is being updated, check that the new parent category exists and is active
+      if (subcategoryData.parentCategoryId && subcategoryData.parentCategoryId !== subcategory.parentCategoryId) {
+        const parentCategory = await storage.getGroceryCategory(subcategoryData.parentCategoryId);
+        if (!parentCategory) {
+          return res.status(400).json({ message: "Parent category not found" });
+        }
+        
+        if (!parentCategory.isActive) {
+          return res.status(400).json({ message: "Cannot move subcategory to inactive category" });
+        }
+      }
+      
+      const updatedSubcategory = await storage.updateGrocerySubCategory(parseInt(id), subcategoryData);
+      res.json(updatedSubcategory);
+    } catch (error) {
+      console.error('Error updating grocery subcategory:', error);
+      res.status(400).json({ message: "Invalid grocery subcategory data" });
+    }
+  });
+  
+  // Delete a grocery subcategory (soft delete by setting status to inactive)
+  app.delete("/api/admin/grocery/subcategories/:id", isAuthenticated, hasRole(["admin"]), async (req, res) => {
+    try {
+      const { id } = req.params;
+      
+      // Validate the subcategory exists
+      const subcategory = await storage.getGrocerySubCategory(parseInt(id));
+      if (!subcategory) {
+        return res.status(404).json({ message: "Grocery subcategory not found" });
+      }
+      
+      // Update status to inactive
+      const updatedSubcategory = await storage.updateGrocerySubCategory(parseInt(id), { isActive: false });
+      res.json({ 
+        message: "Grocery subcategory deactivated successfully", 
+        subcategory: updatedSubcategory 
+      });
+    } catch (error) {
+      console.error('Error deleting grocery subcategory:', error);
+      res.status(500).json({ message: "Failed to delete grocery subcategory" });
+    }
+  });
+  
+  // For backward compatibility
+  app.delete("/api/grocery/subcategory/:id", isAuthenticated, hasRole(["admin"]), async (req, res) => {
+    try {
+      const { id } = req.params;
+      
+      // Validate the subcategory exists
+      const subcategory = await storage.getGrocerySubCategory(parseInt(id));
+      if (!subcategory) {
+        return res.status(404).json({ message: "Grocery subcategory not found" });
+      }
+      
+      // Update status to inactive
+      const updatedSubcategory = await storage.updateGrocerySubCategory(parseInt(id), { isActive: false });
+      res.json({ 
+        message: "Grocery subcategory deactivated successfully", 
+        subcategory: updatedSubcategory 
+      });
+    } catch (error) {
+      console.error('Error deleting grocery subcategory:', error);
+      res.status(500).json({ message: "Failed to delete grocery subcategory" });
+    }
+  });
+
+  // Grocery Products routes
+  app.get("/api/admin/grocery/products", isAuthenticated, hasRole(["admin"]), async (req, res) => {
+    try {
+      const { categoryId, subcategoryId, status, category } = req.query;
+      
+      const filter: any = {};
+      
+      if (categoryId) {
+        filter.categoryId = parseInt(categoryId as string);
+      }
+      
+      if (subcategoryId) {
+        filter.subcategoryId = parseInt(subcategoryId as string);
+      }
+      
+      if (status) {
+        filter.status = status;
+      }
+      
+      // Handle category name-based filtering
+      if (category) {
+        filter.category = category;
+      }
+      
+      console.log('API Query params:', req.query);
+      console.log('Filter applied for grocery products:', filter);
+      
+      // Fetch all products with filters
+      const products = await storage.getGroceryProducts(filter);
+      res.json(products);
+    } catch (error) {
+      console.error('Error fetching grocery products:', error);
+      res.status(500).json({ message: "Failed to fetch grocery products" });
+    }
+  });
+  
+  app.get("/api/admin/grocery/products/:id", isAuthenticated, hasRole(["admin"]), async (req, res) => {
+    try {
+      const { id } = req.params;
+      const product = await storage.getGroceryProductById(parseInt(id));
+      
+      if (!product) {
+        return res.status(404).json({ message: "Grocery product not found" });
+      }
+      
+      res.json(product);
+    } catch (error) {
+      console.error('Error fetching grocery product:', error);
+      res.status(500).json({ message: "Failed to fetch grocery product" });
+    }
+  });
+  
+  app.post("/api/admin/grocery/products", isAuthenticated, hasRole(["admin"]), async (req, res) => {
+    try {
+      const productData = req.body;
+      
+      // Validate the data against the schema
+      const validatedData = insertGroceryProductSchema.parse(productData);
+      
+      // If category or subcategory is specified, validate they exist
+      if (validatedData.categoryId) {
+        const category = await storage.getGroceryCategory(validatedData.categoryId);
+        if (!category) {
+          return res.status(400).json({ message: "Category not found" });
+        }
+      }
+      
+      if (validatedData.subcategoryId) {
+        const subcategory = await storage.getGrocerySubCategory(validatedData.subcategoryId);
+        if (!subcategory) {
+          return res.status(400).json({ message: "Subcategory not found" });
+        }
+      }
+      
+      const newProduct = await storage.createGroceryProduct(validatedData);
+      res.status(201).json(newProduct);
+    } catch (error) {
+      console.error('Error creating grocery product:', error);
+      res.status(500).json({ message: "Failed to create grocery product" });
+    }
+  });
+  
+  app.put("/api/admin/grocery/products/:id", isAuthenticated, hasRole(["admin"]), async (req, res) => {
+    try {
+      const { id } = req.params;
+      const productData = req.body;
+      
+      // Validate the product exists
+      const product = await storage.getGroceryProductById(parseInt(id));
+      if (!product) {
+        return res.status(404).json({ message: "Grocery product not found" });
+      }
+      
+      // Update the product
+      const updatedProduct = await storage.updateGroceryProduct(parseInt(id), productData);
+      if (!updatedProduct) {
+        return res.status(404).json({ message: "Failed to update product" });
+      }
+      
+      res.json(updatedProduct);
+    } catch (error) {
+      console.error('Error updating grocery product:', error);
+      res.status(500).json({ message: "Failed to update grocery product" });
+    }
+  });
+  
+  // Add PATCH endpoint for partial updates
+  app.patch("/api/admin/grocery/products/:id", isAuthenticated, hasRole(["admin"]), async (req, res) => {
+    try {
+      const { id } = req.params;
+      const productData = req.body;
+      
+      // Validate the product exists
+      const product = await storage.getGroceryProductById(parseInt(id));
+      if (!product) {
+        return res.status(404).json({ message: "Grocery product not found" });
+      }
+      
+      // Update the product
+      const updatedProduct = await storage.updateGroceryProduct(parseInt(id), productData);
+      if (!updatedProduct) {
+        return res.status(404).json({ message: "Failed to update product" });
+      }
+      
+      res.json(updatedProduct);
+    } catch (error) {
+      console.error('Error updating grocery product:', error);
+      res.status(500).json({ message: "Failed to update grocery product", error: error instanceof Error ? error.message : String(error) });
+    }
+  });
+  
+  // Soft delete (set status to inactive) - following pattern from other endpoints
+  app.delete("/api/admin/grocery/products/:id", isAuthenticated, hasRole(["admin"]), async (req, res) => {
+    try {
+      const { id } = req.params;
+      
+      // Validate the product exists
+      const product = await storage.getGroceryProductById(parseInt(id));
+      if (!product) {
+        return res.status(404).json({ message: "Grocery product not found" });
+      }
+      
+      // Set status to inactive
+      const updatedProduct = await storage.updateGroceryProduct(parseInt(id), { status: "inactive" });
+      
+      res.json({ 
+        message: "Grocery product deactivated successfully", 
+        product: updatedProduct 
+      });
+    } catch (error) {
+      console.error('Error deleting grocery product:', error);
+      res.status(500).json({ message: "Failed to delete grocery product" });
+    }
+  });
+
+  // Endpoint to completely delete ALL grocery products from the database (permanent action)
+  app.delete("/api/admin/grocery/products-all", isAuthenticated, hasRole(["admin"]), async (req, res) => {
+    try {
+      await storage.deleteAllGroceryProducts();
+      
+      res.json({ 
+        message: "All grocery products have been permanently deleted", 
+        note: "The cart in localStorage will need to be cleared separately"
+      });
+    } catch (error) {
+      console.error('Error deleting all grocery products:', error);
+      res.status(500).json({ message: "Failed to delete all grocery products" });
+    }
+  });
+  
+  // Create uploads directory if it doesn't exist
+  const uploadsDir = path.join(process.cwd(), 'uploads');
+  fs.mkdirSync(path.join(uploadsDir, 'grocery-products'), { recursive: true });
+  
+  // Configure disk storage for uploads
+  const diskStorage = multer.diskStorage({
+    destination: function(req, file, cb) {
+      cb(null, path.join(uploadsDir, 'grocery-products'));
+    },
+    filename: function(req, file, cb) {
+      const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1E9);
+      const ext = path.extname(file.originalname);
+      cb(null, 'product-' + uniqueSuffix + ext);
+    }
+  });
+  
+  const upload = multer({ 
+    storage: diskStorage,
+    limits: { fileSize: 5 * 1024 * 1024 }, // 5MB limit
+    fileFilter: function(req, file, cb) {
+      // Accept images only
+      if (!file.originalname.match(/\.(jpg|jpeg|png|gif)$/)) {
+        return cb(new Error('Only image files are allowed!'), false);
+      }
+      cb(null, true);
+    }
+  });
+  
+  // Create product with image
+  app.post("/api/admin/grocery/products/with-image", isAuthenticated, hasRole(["admin"]), upload.single('productImage'), async (req, res) => {
+    try {
+      if (!req.file) {
+        return res.status(400).json({ message: "No image file provided" });
+      }
+      
+      // Parse the product data JSON from the request
+      const productData = JSON.parse(req.body.productData);
+      
+      // Set the image URL in the product data
+      const imageUrl = `/uploads/grocery-products/${req.file.filename}`;
+      productData.imageUrl = imageUrl;
+      
+      // Validate the data against the schema
+      const validatedData = insertGroceryProductSchema.parse(productData);
+      
+      // Create the product with the image URL
+      const product = await storage.createGroceryProduct(validatedData);
+      
+      res.status(201).json(product);
+    } catch (error: any) {
+      console.error('Error creating product with image:', error);
+      res.status(500).json({ message: error.message || "Failed to create product with image" });
+    }
+  });
+  
+  // Update product with image
+  app.put("/api/admin/grocery/products/:id/with-image", isAuthenticated, hasRole(["admin"]), upload.single('productImage'), async (req, res) => {
+    try {
+      const { id } = req.params;
+      
+      if (!req.file) {
+        return res.status(400).json({ message: "No image file provided" });
+      }
+      
+      // Check if the product exists
+      const product = await storage.getGroceryProductById(parseInt(id));
+      if (!product) {
+        return res.status(404).json({ message: "Grocery product not found" });
+      }
+      
+      // Parse the product data JSON from the request
+      const productData = JSON.parse(req.body.productData);
+      
+      // Set the image URL in the product data
+      const imageUrl = `/uploads/grocery-products/${req.file.filename}`;
+      productData.imageUrl = imageUrl;
+      
+      // If product already had an image, delete the old file
+      if (product.imageUrl) {
+        try {
+          const oldImagePath = path.join(process.cwd(), product.imageUrl.replace(/^\//, ''));
+          if (fs.existsSync(oldImagePath)) {
+            fs.unlinkSync(oldImagePath);
+          }
+        } catch (err) {
+          console.error('Error deleting old image file:', err);
+          // Continue even if old image deletion fails
+        }
+      }
+      
+      // Update the product with the image URL
+      const updatedProduct = await storage.updateGroceryProduct(parseInt(id), productData);
+      
+      res.json(updatedProduct);
+    } catch (error: any) {
+      console.error('Error updating product with image:', error);
+      res.status(500).json({ message: error.message || "Failed to update product with image" });
+    }
+  });
+
+  // Admin Local Products routes
+  app.get("/api/admin/local-products", isAuthenticated, hasRole(["admin"]), async (req, res) => {
+    try {
+      const { category, district, status } = req.query;
+      
+      const filter: any = {};
+      
+      if (category) {
+        filter.category = category;
+      }
+      
+      if (district) {
+        filter.district = district;
+      }
+      
+      if (status) {
+        filter.status = status;
+      }
+      
+      // Fetch all products with filters
+      const products = await storage.getLocalProducts(filter);
+      res.json(products);
+    } catch (error) {
+      console.error('Error fetching local products:', error);
+      res.status(500).json({ message: "Failed to fetch local products" });
+    }
+  });
+  
+  app.get("/api/admin/local-products/:id", isAuthenticated, hasRole(["admin"]), async (req, res) => {
+    try {
+      const { id } = req.params;
+      const product = await storage.getLocalProductById(parseInt(id));
+      
+      if (!product) {
+        return res.status(404).json({ message: "Local product not found" });
+      }
+      
+      res.json(product);
+    } catch (error) {
+      console.error('Error fetching local product:', error);
+      res.status(500).json({ message: "Failed to fetch local product" });
+    }
+  });
+  
+  app.post("/api/admin/local-products", isAuthenticated, hasRole(["admin"]), async (req, res) => {
+    try {
+      const productData = req.body;
+      
+      // Validate the data against the schema
+      const validatedData = insertLocalProductSchema.parse(productData);
+      
+      const newProduct = await storage.createLocalProduct(validatedData);
+      res.status(201).json(newProduct);
+    } catch (error) {
+      console.error('Error creating local product:', error);
+      res.status(500).json({ message: "Failed to create local product" });
+    }
+  });
+  
+  app.put("/api/admin/local-products/:id", isAuthenticated, hasRole(["admin"]), async (req, res) => {
+    try {
+      const { id } = req.params;
+      const productData = req.body;
+      
+      // Validate the product exists
+      const product = await storage.getLocalProductById(parseInt(id));
+      if (!product) {
+        return res.status(404).json({ message: "Local product not found" });
+      }
+      
+      // Update the product
+      const updatedProduct = await storage.updateLocalProduct(parseInt(id), productData);
+      if (!updatedProduct) {
+        return res.status(404).json({ message: "Failed to update product" });
+      }
+      
+      res.json(updatedProduct);
+    } catch (error) {
+      console.error('Error updating local product:', error);
+      res.status(500).json({ message: "Failed to update local product" });
+    }
+  });
+  
+  // Soft delete (set status to inactive) - following pattern from other endpoints
+  app.delete("/api/admin/local-products/:id", isAuthenticated, hasRole(["admin"]), async (req, res) => {
+    try {
+      const { id } = req.params;
+      
+      // Validate the product exists
+      const product = await storage.getLocalProductById(parseInt(id));
+      if (!product) {
+        return res.status(404).json({ message: "Local product not found" });
+      }
+      
+      // Set status to inactive
+      const updatedProduct = await storage.updateLocalProduct(parseInt(id), { status: "inactive" });
+      
+      res.json({ 
+        message: "Local product deactivated successfully", 
+        product: updatedProduct 
+      });
+    } catch (error) {
+      console.error('Error deleting local product:', error);
+      res.status(500).json({ message: "Failed to delete local product" });
+    }
+  });
+
+  // Local products routes (for customers/general access)
+  app.post("/api/local/product", isAuthenticated, hasRole(["admin", "branch_manager", "taluk_manager"]), async (req, res) => {
+    try {
+      const productData = insertLocalProductSchema.parse(req.body);
+      
+      const product = await storage.createLocalProduct(productData);
+      res.status(201).json(product);
+    } catch (error) {
+      res.status(400).json({ message: "Invalid local product data" });
+    }
+  });
+
+  app.get("/api/local/products", async (req, res) => {
+    try {
+      const filter: any = {};
+      
+      if (req.query.category) {
+        filter.category = req.query.category as string;
+      }
+      
+      if (req.query.district) {
+        filter.district = req.query.district as string;
+      }
+      
+      // Filter by available areas (e.g., pincode, district, city)
+      if (req.query.availableAreas) {
+        filter.availableAreas = req.query.availableAreas as string;
+      }
+      
+      // Filter by delivery option (e.g., pickup, delivery, both)
+      if (req.query.deliveryOption) {
+        filter.deliveryOption = req.query.deliveryOption as string;
+      }
+      
+      // Filter by status (active, inactive, out_of_stock)
+      if (req.query.status) {
+        filter.status = req.query.status as string;
+      }
+      
+      const products = await storage.getLocalProducts(filter);
+      res.json(products);
+    } catch (error: any) {
+      console.error("Error fetching local products:", error);
+      res.status(500).json({ 
+        message: "Failed to fetch local products", 
+        error: error.message || "Unknown error" 
+      });
+    }
+  });
+
+  app.get("/api/local/product/:id", async (req, res) => {
+    try {
+      const productId = parseInt(req.params.id);
+      const product = await storage.getLocalProductById(productId);
+      
+      if (!product) {
+        return res.status(404).json({ message: "Product not found" });
+      }
+      
+      res.json(product);
+    } catch (error) {
+      res.status(500).json({ message: "Failed to fetch product" });
+    }
+  });
+
+  // Recycling routes
+  app.post("/api/recycling/request", isAuthenticated, async (req, res) => {
+    try {
+      const requestData = insertRecyclingRequestSchema.parse({
+        ...req.body,
+        userId: req.user.id,
+        status: "pending" // Always start with pending status
+      });
+      
+      const request = await storage.createRecyclingRequest(requestData);
+      res.status(201).json(request);
+    } catch (error) {
+      res.status(400).json({ message: "Invalid recycling request data" });
+    }
+  });
+
+  app.get("/api/recycling/requests", isAuthenticated, async (req, res) => {
+    try {
+      const user = req.user as any;
+      
+      // Service agents see requests assigned to them
+      if (user.userType === "service_agent") {
+        const requests = await storage.getRecyclingRequestsByAgentId(user.id);
+        return res.json(requests);
+      }
+      
+      // Regular users see their own requests
+      const requests = await storage.getRecyclingRequestsByUserId(user.id);
+      res.json(requests);
+    } catch (error) {
+      res.status(500).json({ message: "Failed to fetch recycling requests" });
+    }
+  });
+
+  app.put("/api/recycling/request/:id", isAuthenticated, hasRole(["admin", "service_agent"]), async (req, res) => {
+    try {
+      const requestId = parseInt(req.params.id);
+      const { status, totalWeight, amount } = req.body;
+      
+      if (!status) {
+        return res.status(400).json({ message: "Status is required" });
+      }
+      
+      // Update request
+      const updatedRequest = await storage.updateRecyclingRequest(requestId, { 
+        status, 
+        totalWeight, 
+        amount,
+        agentId: req.user.id 
+      });
+      
+      if (!updatedRequest) {
+        return res.status(404).json({ message: "Request not found" });
+      }
+      
+      // If status is "collected" and amount is provided, add to user's wallet using wallet service
+      if (status === "collected" && amount && totalWeight) {
+        try {
+          await walletService.addFunds(
+            updatedRequest.userId,
+            amount,
+            'recycling',
+            `Recycling payment for ${totalWeight}kg of materials`
+          );
+        } catch (walletError) {
+          console.error('Error adding funds to wallet:', walletError);
+          // Even if wallet credit fails, the recycling request was updated successfully
+          // Log the error but don't fail the entire request
+        }
+      }
+      
+      res.json(updatedRequest);
+    } catch (error) {
+      res.status(500).json({ message: "Failed to update recycling request" });
+    }
+  });
+
+  // Commission Configuration routes
+  app.post("/api/commission/config", isAuthenticated, hasRole(["admin"]), async (req, res) => {
+    try {
+      const configData = insertCommissionConfigSchema.parse(req.body);
+      
+      // Ensure total commission is correctly calculated
+      const totalCommission = (
+        (configData.adminCommission || 0) +
+        (configData.branchManagerCommission || 0) +
+        (configData.talukManagerCommission || 0) +
+        (configData.serviceAgentCommission || 0) +
+        (configData.registeredUserCommission || 0)
+      );
+      
+      const commissionConfig = await storage.createCommissionConfig({
+        ...configData,
+        totalCommission,
+        isActive: true
+      });
+      
+      res.status(201).json(commissionConfig);
+    } catch (error) {
+      res.status(400).json({ message: "Invalid commission configuration data" });
+    }
+  });
+
+  app.get("/api/commission/config", isAuthenticated, hasRole(["admin"]), async (req, res) => {
+    try {
+      const configs = await storage.listCommissionConfigs();
+      res.json(configs);
+    } catch (error) {
+      res.status(500).json({ message: "Failed to fetch commission configurations" });
+    }
+  });
+
+  app.get("/api/commission/config/:id", isAuthenticated, hasRole(["admin"]), async (req, res) => {
+    try {
+      const config = await storage.getCommissionConfig(parseInt(req.params.id));
+      if (!config) {
+        return res.status(404).json({ message: "Commission configuration not found" });
+      }
+      res.json(config);
+    } catch (error) {
+      res.status(500).json({ message: "Failed to fetch commission configuration" });
+    }
+  });
+
+  app.patch("/api/commission/config/:id", isAuthenticated, hasRole(["admin"]), async (req, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      const config = await storage.getCommissionConfig(id);
+      if (!config) {
+        return res.status(404).json({ message: "Commission configuration not found" });
+      }
+      
+      const updatedData = req.body;
+      
+      // Recalculate total commission if any commission rates are updated
+      if (
+        'adminCommission' in updatedData ||
+        'branchManagerCommission' in updatedData ||
+        'talukManagerCommission' in updatedData ||
+        'serviceAgentCommission' in updatedData ||
+        'registeredUserCommission' in updatedData
+      ) {
+        updatedData.totalCommission = (
+          (updatedData.adminCommission ?? config.adminCommission) +
+          (updatedData.branchManagerCommission ?? config.branchManagerCommission) +
+          (updatedData.talukManagerCommission ?? config.talukManagerCommission) +
+          (updatedData.serviceAgentCommission ?? config.serviceAgentCommission) +
+          (updatedData.registeredUserCommission ?? config.registeredUserCommission)
+        );
+      }
+      
+      const updatedConfig = await storage.updateCommissionConfig(id, updatedData);
+      res.json(updatedConfig);
+    } catch (error) {
+      res.status(500).json({ message: "Failed to update commission configuration" });
+    }
+  });
+
+  // Commission routes
+  app.get("/api/commission", isAuthenticated, async (req, res) => {
+    try {
+      const commissions = await storage.getCommissionsByUserId(req.user.id);
+      res.json(commissions);
+    } catch (error) {
+      res.status(500).json({ message: "Failed to fetch commissions" });
+    }
+  });
+
+  app.get("/api/commission/service/:serviceType", isAuthenticated, hasRole(["admin"]), async (req, res) => {
+    try {
+      const serviceType = req.params.serviceType;
+      const commissions = await storage.getCommissionsByServiceType(serviceType);
+      res.json(commissions);
+    } catch (error) {
+      res.status(500).json({ message: "Failed to fetch commissions by service type" });
+    }
+  });
+
+  // Service agent commission processing route
+  app.post("/api/service/process", isAuthenticated, hasRole(["service_agent"]), async (req, res) => {
+    try {
+      const { serviceType, serviceId, amount, provider } = req.body;
+      
+      if (!serviceType || !serviceId || !amount) {
+        return res.status(400).json({ message: "Missing required fields" });
+      }
+      
+      // Mark the service as processed by this service agent
+      // This depends on the service type
+      if (serviceType === 'recharge') {
+        await storage.updateRecharge(serviceId, { 
+          processedBy: req.user.id,
+          status: 'completed'
+        });
+      } else {
+        return res.status(400).json({ 
+          message: "Service type not supported for commission processing" 
+        });
+      }
+      
+      // Calculate and distribute commissions
+      await storage.calculateCommissions(serviceType, serviceId, amount, provider);
+      
+      res.status(200).json({ message: "Service processed and commissions distributed" });
+    } catch (error: any) {
+      res.status(500).json({ 
+        message: "Failed to process service", 
+        error: error.message 
+      });
+    }
+  });
+
+  // Utility Bill Payment Routes
+  
+  // Get list of utility providers
+  app.get("/api/utility/providers", async (req, res) => {
+    try {
+      const { type, state } = req.query;
+      
+      // Get providers based on optional filters
+      const providers = utilityService.getProviders(
+        type ? type as UtilityType : undefined,
+        state ? state as string : undefined
+      );
+      
+      res.json(providers);
+    } catch (error) {
+      console.error('Error fetching utility providers:', error);
+      res.status(500).json({ message: "Failed to fetch utility providers" });
+    }
+  });
+  
+  // Fetch bill details for a particular provider and consumer number
+  app.get("/api/utility/fetch-bill", isAuthenticated, async (req, res) => {
+    try {
+      const { providerId, consumerNumber } = req.query;
+      
+      if (!providerId || !consumerNumber) {
+        return res.status(400).json({ message: "Provider ID and consumer number are required" });
+      }
+      
+      const billDetails = await utilityService.fetchBill(
+        providerId as string,
+        consumerNumber as string
+      );
+      
+      if (!billDetails) {
+        return res.status(404).json({ message: "No bill found for this consumer number" });
+      }
+      
+      res.json(billDetails);
+    } catch (error) {
+      console.error('Error fetching bill details:', error);
+      res.status(500).json({ message: "Failed to fetch bill details" });
+    }
+  });
+  
+  // Pay a utility bill
+  app.post("/api/utility/pay-bill", isAuthenticated, async (req, res) => {
+    try {
+      const { billId, providerId, consumerNumber, amount, processedById } = req.body;
+      
+      if (!billId || !providerId || !consumerNumber || !amount) {
+        return res.status(400).json({ message: "Missing required bill payment fields" });
+      }
+      
+      try {
+        // Check if user has sufficient wallet balance
+        const balance = await walletService.getBalance(req.user.id);
+        if (balance < amount) {
+          return res.status(400).json({ 
+            message: "Insufficient wallet balance", 
+            currentBalance: balance,
+            requiredAmount: amount
+          });
+        }
+      } catch (walletError) {
+        console.error('Wallet error:', walletError);
+        return res.status(400).json({ message: "Could not verify wallet balance" });
+      }
+      
+      // If this is a service agent processing a payment for a customer
+      let agentId = processedById;
+      if (!agentId && req.user.userType === 'service_agent') {
+        agentId = req.user.id;
+      }
+      
+      // Process the bill payment with the utility service
+      const paymentResult = await utilityService.payBill(
+        req.user.id,
+        billId,
+        providerId,
+        consumerNumber,
+        amount,
+        agentId
+      );
+      
+      if (!paymentResult.success) {
+        return res.status(400).json({ 
+          message: paymentResult.message || "Payment failed"
+        });
+      }
+      
+      res.status(200).json({
+        success: true,
+        message: "Bill payment successful",
+        transactionId: paymentResult.transactionId,
+        receiptNumber: paymentResult.receiptNumber,
+        paidAmount: paymentResult.paidAmount,
+        paidDate: paymentResult.paidDate
+      });
+    } catch (error) {
+      console.error('Error processing bill payment:', error);
+      res.status(500).json({ 
+        message: error instanceof Error ? error.message : "Failed to process bill payment"
+      });
+    }
+  });
+
+  // Travel Booking Routes
+  
+  // Get list of cities for origin/destination
+  app.get("/api/travel/cities", async (req, res) => {
+    try {
+      // Import cities directly from travelService file
+      const { cities } = await import('./services/travelService');
+      res.json(cities);
+    } catch (error) {
+      console.error('Error fetching cities:', error);
+      res.status(500).json({ message: "Failed to fetch cities list" });
+    }
+  });
+  
+  // Search for available buses
+  app.get("/api/travel/bus/search", async (req, res) => {
+    try {
+      const { origin, destination, departDate } = req.query;
+      
+      const searchParams: Record<string, any> = {
+        bookingType: 'bus'
+      };
+      
+      if (origin) searchParams.origin = origin;
+      if (destination) searchParams.destination = destination;
+      if (departDate) searchParams.departDate = departDate;
+      
+      const buses = travelService.searchBuses(searchParams);
+      res.json(buses);
+    } catch (error) {
+      console.error('Error searching buses:', error);
+      res.status(500).json({ message: "Failed to search for buses" });
+    }
+  });
+  
+  // Get bus details
+  app.get("/api/travel/bus/:id", async (req, res) => {
+    try {
+      const bus = travelService.getBusDetails(req.params.id);
+      
+      if (!bus) {
+        return res.status(404).json({ message: "Bus not found" });
+      }
+      
+      res.json(bus);
+    } catch (error) {
+      console.error('Error fetching bus details:', error);
+      res.status(500).json({ message: "Failed to fetch bus details" });
+    }
+  });
+  
+  // Book a bus ticket
+  app.post("/api/travel/bus/book", isAuthenticated, async (req, res) => {
+    try {
+      const { busId, passengers, seatNumbers } = req.body;
+      
+      if (!busId || !passengers || !seatNumbers || !Array.isArray(seatNumbers)) {
+        return res.status(400).json({ message: "Missing required booking information" });
+      }
+      
+      const booking = await travelService.bookBus(
+        req.user.id,
+        busId,
+        passengers,
+        seatNumbers
+      );
+      
+      if (!booking.success) {
+        return res.status(400).json({ 
+          message: booking.message || "Booking failed"
+        });
+      }
+      
+      res.status(200).json(booking);
+    } catch (error) {
+      console.error('Error booking bus:', error);
+      res.status(500).json({ 
+        message: error instanceof Error ? error.message : "Failed to process bus booking"
+      });
+    }
+  });
+  
+  // Search for available flights
+  app.get("/api/travel/flight/search", async (req, res) => {
+    try {
+      const { origin, destination, departDate } = req.query;
+      
+      const searchParams: Record<string, any> = {
+        bookingType: 'flight'
+      };
+      
+      if (origin) searchParams.origin = origin;
+      if (destination) searchParams.destination = destination;
+      if (departDate) searchParams.departDate = departDate;
+      
+      const flights = travelService.searchFlights(searchParams);
+      res.json(flights);
+    } catch (error) {
+      console.error('Error searching flights:', error);
+      res.status(500).json({ message: "Failed to search for flights" });
+    }
+  });
+  
+  // Get flight details
+  app.get("/api/travel/flight/:id", async (req, res) => {
+    try {
+      const flight = travelService.getFlightDetails(req.params.id);
+      
+      if (!flight) {
+        return res.status(404).json({ message: "Flight not found" });
+      }
+      
+      res.json(flight);
+    } catch (error) {
+      console.error('Error fetching flight details:', error);
+      res.status(500).json({ message: "Failed to fetch flight details" });
+    }
+  });
+  
+  // Book a flight ticket
+  app.post("/api/travel/flight/book", isAuthenticated, async (req, res) => {
+    try {
+      const { flightId, passengers, passengerDetails } = req.body;
+      
+      if (!flightId || !passengers || !passengerDetails || !Array.isArray(passengerDetails)) {
+        return res.status(400).json({ message: "Missing required booking information" });
+      }
+      
+      const booking = await travelService.bookFlight(
+        req.user.id,
+        flightId,
+        passengers,
+        passengerDetails
+      );
+      
+      if (!booking.success) {
+        return res.status(400).json({ 
+          message: booking.message || "Booking failed"
+        });
+      }
+      
+      res.status(200).json(booking);
+    } catch (error) {
+      console.error('Error booking flight:', error);
+      res.status(500).json({ 
+        message: error instanceof Error ? error.message : "Failed to process flight booking"
+      });
+    }
+  });
+  
+  // Search for available hotels
+  app.get("/api/travel/hotel/search", async (req, res) => {
+    try {
+      const { destination, checkIn, checkOut, guests } = req.query;
+      
+      const searchParams: Record<string, any> = {
+        bookingType: 'hotel'
+      };
+      
+      if (destination) searchParams.destination = destination;
+      if (checkIn) searchParams.checkIn = checkIn;
+      if (checkOut) searchParams.checkOut = checkOut;
+      if (guests) searchParams.guests = guests;
+      
+      const hotels = travelService.searchHotels(searchParams);
+      res.json(hotels);
+    } catch (error) {
+      console.error('Error searching hotels:', error);
+      res.status(500).json({ message: "Failed to search for hotels" });
+    }
+  });
+  
+  // Get hotel details
+  app.get("/api/travel/hotel/:id", async (req, res) => {
+    try {
+      const hotel = travelService.getHotelDetails(req.params.id);
+      
+      if (!hotel) {
+        return res.status(404).json({ message: "Hotel not found" });
+      }
+      
+      res.json(hotel);
+    } catch (error) {
+      console.error('Error fetching hotel details:', error);
+      res.status(500).json({ message: "Failed to fetch hotel details" });
+    }
+  });
+  
+  // Book a hotel room
+  app.post("/api/travel/hotel/book", isAuthenticated, async (req, res) => {
+    try {
+      const { hotelId, roomTypeId, checkIn, checkOut, guests, rooms } = req.body;
+      
+      if (!hotelId || !roomTypeId || !checkIn || !checkOut || !guests || !rooms) {
+        return res.status(400).json({ message: "Missing required booking information" });
+      }
+      
+      const booking = await travelService.bookHotel(
+        req.user.id,
+        hotelId,
+        roomTypeId,
+        checkIn,
+        checkOut,
+        guests,
+        rooms
+      );
+      
+      if (!booking.success) {
+        return res.status(400).json({ 
+          message: booking.message || "Booking failed"
+        });
+      }
+      
+      res.status(200).json(booking);
+    } catch (error) {
+      console.error('Error booking hotel:', error);
+      res.status(500).json({ 
+        message: error instanceof Error ? error.message : "Failed to process hotel booking"
+      });
+    }
+  });
+  
+  // Get user's booking history
+  app.get("/api/travel/bookings", isAuthenticated, async (req, res) => {
+    try {
+      const bookings = await travelService.getBookingHistory(req.user.id);
+      res.json(bookings);
+    } catch (error) {
+      console.error('Error fetching booking history:', error);
+      res.status(500).json({ message: "Failed to fetch booking history" });
+    }
+  });
+  
+  // Get specific booking details
+  app.get("/api/travel/booking/:id", isAuthenticated, async (req, res) => {
+    try {
+      const bookingId = parseInt(req.params.id);
+      if (isNaN(bookingId)) {
+        return res.status(400).json({ message: "Invalid booking ID" });
+      }
+      
+      const booking = await travelService.getBookingDetails(bookingId);
+      
+      if (!booking) {
+        return res.status(404).json({ message: "Booking not found" });
+      }
+      
+      // Ensure user can only access their own bookings (unless admin)
+      if (booking.userId !== req.user.id && req.user.userType !== 'admin') {
+        return res.status(403).json({ message: "You don't have permission to view this booking" });
+      }
+      
+      res.json(booking);
+    } catch (error) {
+      console.error('Error fetching booking details:', error);
+      res.status(500).json({ message: "Failed to fetch booking details" });
+    }
+  });
+  
+  // Cancel a booking
+  app.post("/api/travel/booking/:id/cancel", isAuthenticated, async (req, res) => {
+    try {
+      const bookingId = parseInt(req.params.id);
+      if (isNaN(bookingId)) {
+        return res.status(400).json({ message: "Invalid booking ID" });
+      }
+      
+      const result = await travelService.cancelBooking(req.user.id, bookingId);
+      
+      if (!result.success) {
+        return res.status(400).json({ 
+          message: result.message || "Cancellation failed"
+        });
+      }
+      
+      res.status(200).json(result);
+    } catch (error) {
+      console.error('Error cancelling booking:', error);
+      res.status(500).json({ 
+        message: error instanceof Error ? error.message : "Failed to cancel booking"
+      });
+    }
+  });
+
+  // Service Provider Routes
+  // Create service provider
+  app.post("/api/service-providers", isAuthenticated, async (req, res) => {
+    try {
+      ensureUserExists(req); // Add type guard to ensure req.user exists
+      
+      // Check if the user already has a service provider account
+      const existingProvider = await storage.getServiceProviderByUserId(req.user.id);
+      
+      if (existingProvider) {
+        return res.status(400).json({ 
+          message: "This user is already registered as a service provider",
+          existingProvider
+        });
+      }
+      
+      // Validate provider data with the schema
+      try {
+        // Prepare the data with defaults for all optional fields and set userId automatically
+        const inputData = {
+          ...req.body,
+          userId: req.user.id, // Set userId from the authenticated user
+          operatingAreas: req.body.operatingAreas || [],
+          website: req.body.website || "",
+          documents: req.body.documents || [],
+          verifiedBy: req.body.verifiedBy || null,
+          verificationStatus: req.body.verificationStatus || "pending",
+          businessName: req.body.name || req.body.businessName || "" // Support for 'name' field
+        };
+        
+        console.log("Processing service provider data:", inputData);
+        
+        // Now validate with the schema
+        const providerData = insertServiceProviderSchema.parse(inputData);
+        const newServiceProvider = await storage.createServiceProvider(providerData);
+        
+        console.log("Service provider created successfully:", newServiceProvider.id);
+        res.status(201).json(newServiceProvider);
+      } catch (validationError: any) {
+        console.error("Service provider validation error:", validationError);
+        return res.status(400).json({ 
+          message: "Invalid service provider data", 
+          errors: validationError.errors || validationError.message
+        });
+      }
+    } catch (error: any) {
+      console.error("Error creating service provider:", error);
+      
+      // Handle unique constraint violation
+      if (error.message && error.message.includes('duplicate key value violates unique constraint')) {
+        return res.status(400).json({ 
+          message: "This user is already registered as a service provider"
+        });
+      }
+      
+      res.status(500).json({ message: error.message });
+    }
+  });
+
+  // Get all service providers (with filtering)
+  app.get("/api/service-providers", isAuthenticated, async (req, res) => {
+    try {
+      const { providerType, status, district } = req.query;
+      const filter: any = {};
+
+      if (providerType) filter.providerType = providerType as string;
+      if (status) filter.status = status as string;
+      if (district) filter.district = district as string;
+
+      const serviceProviders = await storage.listServiceProviders(filter);
+      res.json(serviceProviders);
+    } catch (error: any) {
+      console.error("Error fetching service providers:", error);
+      res.status(500).json({ message: error.message });
+    }
+  });
+
+  // Get service provider by ID
+  app.get("/api/service-providers/:id", isAuthenticated, async (req, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      const serviceProvider = await storage.getServiceProvider(id);
+
+      if (!serviceProvider) {
+        return res.status(404).json({ message: "Service provider not found" });
+      }
+
+      res.json(serviceProvider);
+    } catch (error: any) {
+      console.error("Error fetching service provider:", error);
+      res.status(500).json({ message: error.message });
+    }
+  });
+
+  // Get service provider by user ID
+  app.get("/api/service-providers/user/:userId", isAuthenticated, async (req, res) => {
+    try {
+      const userId = parseInt(req.params.userId);
+      const serviceProvider = await storage.getServiceProviderByUserId(userId);
+
+      if (!serviceProvider) {
+        return res.status(404).json({ message: "Service provider not found for this user" });
+      }
+
+      res.json(serviceProvider);
+    } catch (error: any) {
+      console.error("Error fetching service provider by user ID:", error);
+      res.status(500).json({ message: error.message });
+    }
+  });
+
+  // Update service provider
+  app.patch("/api/service-providers/:id", isAuthenticated, async (req, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      const serviceProvider = await storage.getServiceProvider(id);
+
+      if (!serviceProvider) {
+        return res.status(404).json({ message: "Service provider not found" });
+      }
+
+      // Only allow updates by owner or admin/manager
+      if (
+        req.user?.id !== serviceProvider.userId &&
+        !["admin", "branch_manager", "taluk_manager"].includes(req.user?.userType || "")
+      ) {
+        return res.status(403).json({ message: "Not authorized to update this service provider" });
+      }
+
+      const updatedServiceProvider = await storage.updateServiceProvider(id, req.body);
+      res.json(updatedServiceProvider);
+    } catch (error: any) {
+      console.error("Error updating service provider:", error);
+      res.status(500).json({ message: error.message });
+    }
+  });
+
+  // Provider Details Routes
+  // Farmer Details
+  app.post("/api/farmer-details", isAuthenticated, async (req, res) => {
+    try {
+      // Skip the check for existing records - the constraint in the database will handle this
+      // We'll just catch any error during creation
+      
+      console.log("Creating farmer details with data:", req.body);
+      
+      // Prepare the data with defaults for optional fields
+      const primaryProducts = req.body.primaryProducts || [];
+      
+      const farmerData = {
+        ...req.body,
+        farmSize: req.body.farmSize || "0",
+        farmType: req.body.farmType || "",
+        // Convert array to string if needed
+        primaryProducts: Array.isArray(primaryProducts) ? JSON.stringify(primaryProducts) : primaryProducts,
+        cultivationSeason: req.body.cultivationSeason || "",
+        operatingHours: req.body.operatingHours || "",
+        supportsDelivery: req.body.supportsDelivery !== undefined ? req.body.supportsDelivery : false,
+        bankDetails: req.body.bankDetails || {}
+      };
+      
+      const newFarmerDetail = await storage.createFarmerDetail(farmerData);
+      console.log("Farmer details created successfully:", newFarmerDetail.id);
+      res.status(201).json(newFarmerDetail);
+    } catch (error: any) {
+      console.error("Error creating farmer details:", error);
+      
+      // Handle unique constraint violation
+      if (error.message && error.message.includes('duplicate key value violates unique constraint')) {
+        return res.status(400).json({ 
+          message: "Farmer details already exist for this service provider"
+        });
+      }
+      
+      res.status(500).json({ message: error.message });
+    }
+  });
+
+  app.get("/api/farmer-details/provider/:providerId", isAuthenticated, async (req, res) => {
+    try {
+      const providerId = parseInt(req.params.providerId);
+      const farmerDetail = await storage.getFarmerDetailByProviderId(providerId);
+
+      if (!farmerDetail) {
+        return res.status(404).json({ message: "Farmer details not found" });
+      }
+
+      res.json(farmerDetail);
+    } catch (error: any) {
+      console.error("Error fetching farmer details:", error);
+      res.status(500).json({ message: error.message });
+    }
+  });
+
+  // Manufacturer Details
+  app.post("/api/manufacturer-details", isAuthenticated, async (req, res) => {
+    try {
+      console.log("Creating manufacturer details with data:", req.body);
+      
+      // Prepare the data with defaults for optional fields
+      const manufacturerData = {
+        ...req.body,
+        businessType: req.body.businessType || "",
+        productCategories: req.body.productCategories || [],
+        establishmentYear: req.body.establishmentYear || new Date().getFullYear(),
+        certifications: req.body.certifications || [],
+        supportsDelivery: req.body.supportsDelivery !== undefined ? req.body.supportsDelivery : false,
+        bankDetails: req.body.bankDetails || {}
+      };
+      
+      const newManufacturerDetail = await storage.createManufacturerDetail(manufacturerData);
+      console.log("Manufacturer details created successfully:", newManufacturerDetail.id);
+      res.status(201).json(newManufacturerDetail);
+    } catch (error: any) {
+      console.error("Error creating manufacturer details:", error);
+      res.status(500).json({ message: error.message });
+    }
+  });
+
+  app.get("/api/manufacturer-details/provider/:providerId", isAuthenticated, async (req, res) => {
+    try {
+      const providerId = parseInt(req.params.providerId);
+      const manufacturerDetail = await storage.getManufacturerDetailByProviderId(providerId);
+
+      if (!manufacturerDetail) {
+        return res.status(404).json({ message: "Manufacturer details not found" });
+      }
+
+      res.json(manufacturerDetail);
+    } catch (error: any) {
+      console.error("Error fetching manufacturer details:", error);
+      res.status(500).json({ message: error.message });
+    }
+  });
+
+  // Booking Agent Details
+  app.post("/api/booking-agent-details", isAuthenticated, async (req, res) => {
+    try {
+      console.log("Creating booking agent details with data:", req.body);
+      
+      // Prepare the data with defaults for optional fields
+      const bookingAgentData = {
+        ...req.body,
+        serviceTypes: req.body.serviceTypes || [],
+        operatingHours: req.body.operatingHours || "",
+        yearsOfExperience: req.body.yearsOfExperience || 0,
+        preferredProviders: req.body.preferredProviders || [],
+        commissionRates: req.body.commissionRates || {},
+        bankDetails: req.body.bankDetails || {}
+      };
+      
+      const newBookingAgentDetail = await storage.createBookingAgentDetail(bookingAgentData);
+      console.log("Booking agent details created successfully:", newBookingAgentDetail.id);
+      res.status(201).json(newBookingAgentDetail);
+    } catch (error: any) {
+      console.error("Error creating booking agent details:", error);
+      res.status(500).json({ message: error.message });
+    }
+  });
+
+  app.get("/api/booking-agent-details/provider/:providerId", isAuthenticated, async (req, res) => {
+    try {
+      const providerId = parseInt(req.params.providerId);
+      const bookingAgentDetail = await storage.getBookingAgentDetailByProviderId(providerId);
+
+      if (!bookingAgentDetail) {
+        return res.status(404).json({ message: "Booking agent details not found" });
+      }
+
+      res.json(bookingAgentDetail);
+    } catch (error: any) {
+      console.error("Error fetching booking agent details:", error);
+      res.status(500).json({ message: error.message });
+    }
+  });
+
+  // Taxi Provider Details
+  app.post("/api/taxi-provider-details", isAuthenticated, async (req, res) => {
+    try {
+      console.log("Creating taxi provider details with data:", req.body);
+      
+      // Prepare the data with defaults for optional fields to match the updated schema
+      const taxiData = {
+        ...req.body,
+        vehicleTypes: req.body.vehicleTypes || "",
+        operatingHours: req.body.operatingHours || "",
+        driversCount: req.body.driversCount || "",
+        fleetSize: req.body.fleetSize || "",
+        bankDetails: req.body.bankDetails || {}
+      };
+      
+      const newTaxiProviderDetail = await storage.createTaxiProviderDetail(taxiData);
+      console.log("Taxi provider details created successfully:", newTaxiProviderDetail.id);
+      res.status(201).json(newTaxiProviderDetail);
+    } catch (error: any) {
+      console.error("Error creating taxi provider details:", error);
+      res.status(500).json({ message: error.message });
+    }
+  });
+
+  app.get("/api/taxi-provider-details/provider/:providerId", isAuthenticated, async (req, res) => {
+    try {
+      const providerId = parseInt(req.params.providerId);
+      const taxiProviderDetail = await storage.getTaxiProviderDetailByProviderId(providerId);
+
+      if (!taxiProviderDetail) {
+        return res.status(404).json({ message: "Taxi provider details not found" });
+      }
+
+      res.json(taxiProviderDetail);
+    } catch (error: any) {
+      console.error("Error fetching taxi provider details:", error);
+      res.status(500).json({ message: error.message });
+    }
+  });
+
+  // Transportation Agent Details
+  app.post("/api/transportation-agent-details", isAuthenticated, async (req, res) => {
+    try {
+      console.log("Creating transportation agent details with data:", req.body);
+      
+      // Prepare the data with defaults for optional fields
+      const transportationData = {
+        ...req.body,
+        vehicleTypes: req.body.vehicleTypes || [],
+        vehicleCount: req.body.vehicleCount || 0,
+        operatingHours: req.body.operatingHours || "",
+        serviceAreas: req.body.serviceAreas || [],
+        maxDistance: req.body.maxDistance || 0,
+        maxWeight: req.body.maxWeight || 0,
+        pricePerKg: req.body.pricePerKg || 0,
+        pricePerKm: req.body.pricePerKm || 0,
+        bankDetails: req.body.bankDetails || {}
+      };
+      
+      const newTransportationAgentDetail = await storage.createTransportationAgentDetail(transportationData);
+      console.log("Transportation agent details created successfully:", newTransportationAgentDetail.id);
+      res.status(201).json(newTransportationAgentDetail);
+    } catch (error: any) {
+      console.error("Error creating transportation agent details:", error);
+      res.status(500).json({ message: error.message });
+    }
+  });
+
+  app.get("/api/transportation-agent-details/provider/:providerId", isAuthenticated, async (req, res) => {
+    try {
+      const providerId = parseInt(req.params.providerId);
+      const transportationAgentDetail = await storage.getTransportationAgentDetailByProviderId(providerId);
+
+      if (!transportationAgentDetail) {
+        return res.status(404).json({ message: "Transportation agent details not found" });
+      }
+
+      res.json(transportationAgentDetail);
+    } catch (error: any) {
+      console.error("Error fetching transportation agent details:", error);
+      res.status(500).json({ message: error.message });
+    }
+  });
+
+  // Rental Provider Details
+  app.post("/api/rental-provider-details", isAuthenticated, async (req, res) => {
+    try {
+      console.log("Creating rental provider details with data:", req.body);
+      
+      // Prepare the data with defaults for optional fields
+      const rentalData = {
+        ...req.body,
+        itemCategories: req.body.itemCategories || [],
+        itemDetails: req.body.itemDetails || [],
+        depositRequired: req.body.depositRequired !== undefined ? req.body.depositRequired : true,
+        operatingHours: req.body.operatingHours || "",
+        deliveryAvailable: req.body.deliveryAvailable !== undefined ? req.body.deliveryAvailable : false,
+        deliveryCharge: req.body.deliveryCharge || 0,
+        bankDetails: req.body.bankDetails || {}
+      };
+      
+      const newRentalProviderDetail = await storage.createRentalProviderDetail(rentalData);
+      console.log("Rental provider details created successfully:", newRentalProviderDetail.id);
+      res.status(201).json(newRentalProviderDetail);
+    } catch (error: any) {
+      console.error("Error creating rental provider details:", error);
+      res.status(500).json({ message: error.message });
+    }
+  });
+
+  app.get("/api/rental-provider-details/provider/:providerId", isAuthenticated, async (req, res) => {
+    try {
+      const providerId = parseInt(req.params.providerId);
+      const rentalProviderDetail = await storage.getRentalProviderDetailByProviderId(providerId);
+
+      if (!rentalProviderDetail) {
+        return res.status(404).json({ message: "Rental provider details not found" });
+      }
+
+      res.json(rentalProviderDetail);
+    } catch (error: any) {
+      console.error("Error fetching rental provider details:", error);
+      res.status(500).json({ message: error.message });
+    }
+  });
+
+  // Recycling Agent Details
+  app.post("/api/recycling-agent-details", isAuthenticated, async (req, res) => {
+    try {
+      console.log("Creating recycling agent details with data:", req.body);
+      
+      // Prepare the data with defaults for optional fields
+      const recyclingData = {
+        ...req.body,
+        materialTypes: req.body.materialTypes || [],
+        pricePerKg: req.body.pricePerKg || {},
+        minQuantity: req.body.minQuantity || 0,
+        providesPickup: req.body.providesPickup !== undefined ? req.body.providesPickup : true,
+        operatingHours: req.body.operatingHours || "",
+        purchaseProcess: req.body.purchaseProcess || "",
+        bankDetails: req.body.bankDetails || {}
+      };
+      
+      const newRecyclingAgentDetail = await storage.createRecyclingAgentDetail(recyclingData);
+      console.log("Recycling agent details created successfully:", newRecyclingAgentDetail.id);
+      res.status(201).json(newRecyclingAgentDetail);
+    } catch (error: any) {
+      console.error("Error creating recycling agent details:", error);
+      res.status(500).json({ message: error.message });
+    }
+  });
+
+  app.get("/api/recycling-agent-details/provider/:providerId", isAuthenticated, async (req, res) => {
+    try {
+      const providerId = parseInt(req.params.providerId);
+      const recyclingAgentDetail = await storage.getRecyclingAgentDetailByProviderId(providerId);
+
+      if (!recyclingAgentDetail) {
+        return res.status(404).json({ message: "Recycling agent details not found" });
+      }
+
+      res.json(recyclingAgentDetail);
+    } catch (error: any) {
+      console.error("Error fetching recycling agent details:", error);
+      res.status(500).json({ message: error.message });
+    }
+  });
+
+  // Commission routes
+  // Get commission statistics for a service agent
+  app.get("/api/commissions/stats", isAuthenticated, async (req, res) => {
+    try {
+      const stats = await commissionService.getUserCommissionStats(req.user.id);
+      res.json(stats);
+    } catch (error: any) {
+      console.error("Error fetching commission stats:", error);
+      res.status(500).json({ message: error.message });
+    }
+  });
+
+  // Process commissions for a service agent
+  app.post("/api/commissions/process", isAuthenticated, hasRole(["admin", "branch_manager", "taluk_manager"]), async (req, res) => {
+    try {
+      const { serviceAgentId, serviceType, amount, provider, description } = req.body;
+      
+      if (!serviceAgentId || !serviceType || !amount) {
+        return res.status(400).json({ message: "Missing required fields" });
+      }
+      
+      const result = await commissionService.processServiceAgentCommission(
+        serviceAgentId,
+        serviceType,
+        amount,
+        provider,
+        description
+      );
+      
+      res.json(result);
+    } catch (error: any) {
+      console.error("Error processing commissions:", error);
+      res.status(500).json({ message: error.message });
+    }
+  });
+  
+  // Process customer transaction with commission distribution
+  app.post("/api/commissions/customer-transaction", isAuthenticated, hasRole(["service_agent"]), async (req, res) => {
+    try {
+      const { customerId, serviceType, amount, provider } = req.body;
+      
+      if (!customerId || !serviceType || !amount) {
+        return res.status(400).json({ message: "Missing required fields" });
+      }
+      
+      const result = await commissionService.processCustomerTransaction(
+        customerId,
+        req.user.id, // Service agent ID
+        serviceType,
+        amount,
+        provider
+      );
+      
+      res.json(result);
+    } catch (error: any) {
+      console.error("Error processing customer transaction:", error);
+      res.status(500).json({ message: error.message });
+    }
+  });
+
+  // List pending commissions (for admin)
+  app.get("/api/commissions/pending", isAuthenticated, hasRole(["admin"]), async (req, res) => {
+    try {
+      const userType = req.query.userType as string | undefined;
+      const serviceType = req.query.serviceType as string | undefined;
+      
+      const pendingCommissions = await commissionService.getPendingCommissions({
+        userType,
+        serviceType
+      });
+      
+      res.json(pendingCommissions);
+    } catch (error: any) {
+      console.error("Error fetching pending commissions:", error);
+      res.status(500).json({ message: error.message });
+    }
+  });
+
+  // Mark commissions as paid
+  app.post("/api/commissions/mark-paid", isAuthenticated, hasRole(["admin"]), async (req, res) => {
+    try {
+      const { commissionIds } = req.body;
+      
+      if (!commissionIds || !Array.isArray(commissionIds)) {
+        return res.status(400).json({ message: "Invalid commission IDs" });
+      }
+      
+      const paidCount = await commissionService.markCommissionsAsPaid(commissionIds);
+      
+      res.json({
+        success: true,
+        message: `Marked ${paidCount}/${commissionIds.length} commissions as paid`,
+        paidCount
+      });
+    } catch (error: any) {
+      console.error("Error marking commissions as paid:", error);
+      res.status(500).json({ message: error.message });
+    }
+  });
+
+  // Get all commission configs
+  app.get("/api/commission-configs", isAuthenticated, async (req, res) => {
+    try {
+      const configs = await storage.listCommissionConfigs();
+      res.json(configs);
+    } catch (error: any) {
+      console.error("Error fetching commission configs:", error);
+      res.status(500).json({ message: error.message });
+    }
+  });
+
+  // Create a new commission config
+  app.post("/api/commission-configs", isAuthenticated, hasRole(["admin"]), async (req, res) => {
+    try {
+      const configData = insertCommissionConfigSchema.parse(req.body);
+      const config = await storage.createCommissionConfig(configData);
+      res.status(201).json(config);
+    } catch (error: any) {
+      console.error("Error creating commission config:", error);
+      res.status(400).json({ message: error.message });
+    }
+  });
+
+  // Update a commission config
+  app.put("/api/commission-configs/:id", isAuthenticated, hasRole(["admin"]), async (req, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      const configData = req.body;
+      
+      const updatedConfig = await storage.updateCommissionConfig(id, configData);
+      
+      if (!updatedConfig) {
+        return res.status(404).json({ message: "Commission config not found" });
+      }
+      
+      res.json(updatedConfig);
+    } catch (error: any) {
+      console.error("Error updating commission config:", error);
+      res.status(400).json({ message: error.message });
+    }
+  });
+
+  // =====================================================================
+  // Farmer Product Listing routes
+  // =====================================================================
+  
+  // Get all farmer product listings (with filtering options)
+  app.get("/api/farmer-products", async (req, res) => {
+    try {
+      const filter: any = {};
+      
+      if (req.query.farmerId) {
+        filter.farmerId = parseInt(req.query.farmerId as string);
+      }
+      
+      if (req.query.groceryProductId) {
+        filter.groceryProductId = parseInt(req.query.groceryProductId as string);
+      }
+      
+      if (req.query.status) {
+        filter.status = req.query.status as string;
+      }
+      
+      const listings = await storage.getFarmerProductListings(filter);
+      
+      // If grocery product details are needed, fetch them
+      if (req.query.includeProduct === 'true') {
+        const listingsWithProducts = await Promise.all(
+          listings.map(async (listing) => {
+            const product = await storage.getGroceryProductById(listing.groceryProductId);
+            return {
+              ...listing,
+              product
+            };
+          })
+        );
+        return res.json(listingsWithProducts);
+      }
+      
+      res.json(listings);
+    } catch (error: any) {
+      console.error("Error fetching farmer product listings:", error);
+      res.status(500).json({ message: error.message });
+    }
+  });
+  
+  // Get all product listings for the logged-in farmer (requires authentication)
+  app.get("/api/farmer-products/my-listings", isAuthenticated, async (req, res) => {
+    try {
+      // Check if the user is a farmer service provider
+      const serviceProvider = await storage.getServiceProviderByUserId(req.user.id);
+      
+      if (!serviceProvider || serviceProvider.providerType !== 'farmer') {
+        return res.status(403).json({ message: "Only farmers can view their product listings" });
+      }
+      
+      // Get farmer details
+      const farmerDetail = await storage.getFarmerDetailByProviderId(serviceProvider.id);
+      
+      if (!farmerDetail) {
+        return res.status(404).json({ message: "Farmer details not found" });
+      }
+      
+      // Get all listings for this farmer
+      const listings = await storage.getFarmerProductListings({ farmerId: farmerDetail.id });
+      
+      // If grocery product details are needed, fetch them
+      if (req.query.includeProduct === 'true') {
+        const listingsWithProducts = await Promise.all(
+          listings.map(async (listing) => {
+            const product = await storage.getGroceryProductById(listing.groceryProductId);
+            return {
+              ...listing,
+              product,
+              // Add farmer name for display
+              farmerName: req.user.fullName || serviceProvider.name || req.user.username
+            };
+          })
+        );
+        return res.json(listingsWithProducts);
+      }
+      
+      res.json(listings);
+    } catch (error: any) {
+      console.error("Error fetching farmer's product listings:", error);
+      res.status(500).json({ message: error.message });
+    }
+  });
+  
+  // Get a single farmer product listing
+  app.get("/api/farmer-products/:id", async (req, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      const listing = await storage.getFarmerProductListing(id);
+      
+      if (!listing) {
+        return res.status(404).json({ message: "Farmer product listing not found" });
+      }
+      
+      // Include product details if requested
+      if (req.query.includeProduct === 'true') {
+        const product = await storage.getGroceryProductById(listing.groceryProductId);
+        return res.json({
+          ...listing,
+          product
+        });
+      }
+      
+      res.json(listing);
+    } catch (error: any) {
+      console.error("Error fetching farmer product listing:", error);
+      res.status(500).json({ message: error.message });
+    }
+  });
+  
+  // Create a new farmer product listing (requires authentication as a farmer service provider)
+  app.post("/api/farmer-products", isAuthenticated, async (req, res) => {
+    try {
+      // Check if the user is a farmer service provider
+      const serviceProvider = await storage.getServiceProviderByUserId(req.user.id);
+      
+      if (!serviceProvider) {
+        console.error(`No service provider found for user ID: ${req.user.id}`);
+        return res.status(403).json({ message: "You are not registered as a service provider. Please complete your registration." });
+      }
+      
+      if (serviceProvider.providerType !== 'farmer') {
+        console.error(`User is a ${serviceProvider.providerType}, not a farmer`);
+        return res.status(403).json({ message: "Only farmers can create product listings" });
+      }
+      
+      // Get farmer details
+      let farmerDetail = await storage.getFarmerDetailByProviderId(serviceProvider.id);
+      
+      if (!farmerDetail) {
+        console.error(`No farmer details found for service provider ID: ${serviceProvider.id}`);
+        
+        // Create farmer details if they don't exist
+        try {
+          const newFarmerDetail = await storage.createFarmerDetail({
+            serviceProviderId: serviceProvider.id,
+            primaryProducts: "Various",
+            supportsDelivery: true
+          });
+          
+          console.log(`Created new farmer detail with ID: ${newFarmerDetail.id}`);
+          
+          // Set farmerDetail to the newly created one so we can continue processing
+          farmerDetail = newFarmerDetail;
+        } catch (err) {
+          console.error("Error creating farmer detail:", err);
+          return res.status(500).json({ message: "Failed to create farmer details" });
+        }
+      }
+      
+      // Validate the listing data
+      const { groceryProductId, quantity, price, unit, imageUrl, transportAgentRequired, selfDelivery, isOrganic } = req.body;
+      
+      if (!groceryProductId || !quantity || price === undefined || !unit) {
+        return res.status(400).json({ message: "Missing required fields" });
+      }
+      
+      // Verify that the grocery product exists
+      const groceryProduct = await storage.getGroceryProductById(groceryProductId);
+      
+      if (!groceryProduct) {
+        return res.status(404).json({ message: "Grocery product not found" });
+      }
+      
+      // Create the listing
+      try {
+        const listingData = {
+          farmerId: farmerDetail.id,
+          groceryProductId,
+          quantity,
+          price,
+          unit,
+          imageUrl: imageUrl || null,
+          transportAgentRequired: transportAgentRequired !== false, // default to true
+          selfDelivery: selfDelivery === true, // default to false
+          isOrganic: isOrganic === true, // default to false
+          status: 'pending' // all new listings require approval
+        };
+        
+        console.log("Creating farmer product listing with data:", listingData);
+        
+        const listing = await storage.createFarmerProductListing(listingData);
+        
+        // Create delivery areas if provided
+        if (req.body.deliveryAreas && Array.isArray(req.body.deliveryAreas) && req.body.deliveryAreas.length > 0) {
+          console.log("Adding delivery areas:", req.body.deliveryAreas);
+          
+          await Promise.all(req.body.deliveryAreas.map(async (area: any) => {
+            await storage.createDeliveryArea({
+              listingId: listing.id,
+              district: area.district,
+              taluk: area.taluk,
+              pincode: area.pincode,
+              isActive: true
+            });
+          }));
+        }
+        
+        res.status(201).json({
+          success: true,
+          message: "Product listing created successfully and pending approval",
+          listing
+        });
+      } catch (err) {
+        console.error("Error in listing creation process:", err);
+        throw err; // Re-throw to be caught by the outer catch block
+      }
+    } catch (error: any) {
+      // Enhanced error logging
+      console.error("=== FARMER PRODUCT LISTING ERROR ===");
+      console.error("Error creating farmer product listing:", error);
+      
+      if (error.stack) {
+        console.error("Error stack:", error.stack);
+      }
+      
+      if (error.code) {
+        console.error("SQL Error code:", error.code);
+      }
+      
+      if (error.constraint) {
+        console.error("SQL constraint violation:", error.constraint);
+      }
+      
+      if (error.detail) {
+        console.error("SQL error detail:", error.detail);
+      }
+      
+      console.error("=== END ERROR ===");
+      
+      return res.status(400).json({ 
+        message: error.message || "An error occurred creating the product listing",
+        code: error.code,
+        detail: error.detail,
+        constraint: error.constraint
+      });
+    }
+  });
+  
+  // Update a farmer product listing (farmer can only update their own listings)
+  app.put("/api/farmer-products/:id", isAuthenticated, async (req, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      const listing = await storage.getFarmerProductListing(id);
+      
+      if (!listing) {
+        return res.status(404).json({ message: "Farmer product listing not found" });
+      }
+      
+      // Check if the user is a farmer service provider
+      const serviceProvider = await storage.getServiceProviderByUserId(req.user.id);
+      
+      if (!serviceProvider || serviceProvider.providerType !== 'farmer') {
+        return res.status(403).json({ message: "Only farmers can update product listings" });
+      }
+      
+      // Get farmer details
+      const farmerDetail = await storage.getFarmerDetailByProviderId(serviceProvider.id);
+      
+      if (!farmerDetail || farmerDetail.id !== listing.farmerId) {
+        return res.status(403).json({ message: "You can only update your own listings" });
+      }
+      
+      // Prepare update data
+      const allowedFields = ['quantity', 'price', 'unit', 'imageUrl', 'transportAgentRequired', 'selfDelivery', 'isOrganic'];
+      const updateData: any = {};
+      
+      allowedFields.forEach(field => {
+        if (req.body[field] !== undefined) {
+          updateData[field] = req.body[field];
+        }
+      });
+      
+      // Admin fields cannot be updated by the farmer
+      if (req.user.userType === 'admin') {
+        if (req.body.status !== undefined) {
+          updateData.status = req.body.status;
+        }
+      } else {
+        // When a farmer updates a listing, set status back to pending for review
+        updateData.status = 'pending';
+      }
+      
+      const updatedListing = await storage.updateFarmerProductListing(id, updateData);
+      
+      res.json({
+        success: true,
+        message: req.user.userType === 'admin' 
+          ? "Product listing updated successfully" 
+          : "Product listing updated successfully and pending approval",
+        listing: updatedListing
+      });
+    } catch (error: any) {
+      console.error("Error updating farmer product listing:", error);
+      res.status(400).json({ message: error.message });
+    }
+  });
+  
+  // Delete a farmer product listing (farmer can only delete their own listings)
+  app.delete("/api/farmer-products/:id", isAuthenticated, async (req, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      const listing = await storage.getFarmerProductListing(id);
+      
+      if (!listing) {
+        return res.status(404).json({ message: "Farmer product listing not found" });
+      }
+      
+      // Admin can delete any listing
+      if (req.user.userType === 'admin') {
+        await storage.deleteFarmerProductListing(id);
+        return res.json({ success: true, message: "Product listing deleted successfully" });
+      }
+      
+      // Check if the user is a farmer service provider
+      const serviceProvider = await storage.getServiceProviderByUserId(req.user.id);
+      
+      if (!serviceProvider || serviceProvider.providerType !== 'farmer') {
+        return res.status(403).json({ message: "Only farmers can delete product listings" });
+      }
+      
+      // Get farmer details
+      const farmerDetail = await storage.getFarmerDetailByProviderId(serviceProvider.id);
+      
+      if (!farmerDetail || farmerDetail.id !== listing.farmerId) {
+        return res.status(403).json({ message: "You can only delete your own listings" });
+      }
+      
+      await storage.deleteFarmerProductListing(id);
+      
+      res.json({
+        success: true,
+        message: "Product listing deleted successfully"
+      });
+    } catch (error: any) {
+      console.error("Error deleting farmer product listing:", error);
+      res.status(500).json({ message: error.message });
+    }
+  });
+  
+  // Admin approval of farmer product listings
+  app.patch("/api/farmer-products/:id/approve", isAuthenticated, hasRole(["admin"]), async (req, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      const listing = await storage.getFarmerProductListing(id);
+      
+      if (!listing) {
+        return res.status(404).json({ message: "Farmer product listing not found" });
+      }
+      
+      const updatedListing = await storage.updateFarmerProductListing(id, { status: 'approved' });
+      
+      res.json({
+        success: true,
+        message: "Product listing approved successfully",
+        listing: updatedListing
+      });
+    } catch (error: any) {
+      console.error("Error approving farmer product listing:", error);
+      res.status(500).json({ message: error.message });
+    }
+  });
+  
+  // Admin rejection of farmer product listings
+  app.patch("/api/farmer-products/:id/reject", isAuthenticated, hasRole(["admin"]), async (req, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      const listing = await storage.getFarmerProductListing(id);
+      
+      if (!listing) {
+        return res.status(404).json({ message: "Farmer product listing not found" });
+      }
+      
+      const { reason } = req.body;
+      const updatedListing = await storage.updateFarmerProductListing(id, { 
+        status: 'rejected',
+        adminNotes: reason || 'Rejected by admin'
+      });
+      
+      res.json({
+        success: true,
+        message: "Product listing rejected",
+        listing: updatedListing
+      });
+    } catch (error: any) {
+      console.error("Error rejecting farmer product listing:", error);
+      res.status(500).json({ message: error.message });
+    }
+  });
+  
+  // =====================================================================
+  // Delivery Area routes
+  // =====================================================================
+  
+  // Get delivery areas for a listing
+  app.get("/api/farmer-products/:listingId/delivery-areas", async (req, res) => {
+    try {
+      const listingId = parseInt(req.params.listingId);
+      const areas = await storage.getDeliveryAreas(listingId);
+      res.json(areas);
+    } catch (error: any) {
+      console.error("Error fetching delivery areas:", error);
+      res.status(500).json({ message: error.message });
+    }
+  });
+  
+  // Add a delivery area to a listing (requires authentication as the farmer who owns the listing)
+  app.post("/api/farmer-products/:listingId/delivery-areas", isAuthenticated, async (req, res) => {
+    try {
+      const listingId = parseInt(req.params.listingId);
+      const listing = await storage.getFarmerProductListing(listingId);
+      
+      if (!listing) {
+        return res.status(404).json({ message: "Farmer product listing not found" });
+      }
+      
+      // Check if the user is a farmer service provider
+      const serviceProvider = await storage.getServiceProviderByUserId(req.user.id);
+      
+      if (!serviceProvider || serviceProvider.providerType !== 'farmer') {
+        return res.status(403).json({ message: "Only farmers can add delivery areas" });
+      }
+      
+      // Get farmer details
+      const farmerDetail = await storage.getFarmerDetailByProviderId(serviceProvider.id);
+      
+      if (!farmerDetail || farmerDetail.id !== listing.farmerId) {
+        return res.status(403).json({ message: "You can only add delivery areas to your own listings" });
+      }
+      
+      // Validate required fields
+      const { district, taluk, pincode } = req.body;
+      
+      if (!district || !taluk || !pincode) {
+        return res.status(400).json({ message: "District, taluk, and pincode are required" });
+      }
+      
+      const areaData = {
+        listingId,
+        district,
+        taluk,
+        pincode,
+        isActive: true
+      };
+      
+      const area = await storage.createDeliveryArea(areaData);
+      
+      res.status(201).json({
+        success: true,
+        message: "Delivery area added successfully",
+        area
+      });
+    } catch (error: any) {
+      console.error("Error adding delivery area:", error);
+      res.status(400).json({ message: error.message });
+    }
+  });
+  
+  // Delete a delivery area (requires authentication as the farmer who owns the listing)
+  app.delete("/api/delivery-areas/:id", isAuthenticated, async (req, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      const area = await storage.getDeliveryArea(id);
+      
+      if (!area) {
+        return res.status(404).json({ message: "Delivery area not found" });
+      }
+      
+      // Get the listing this area belongs to
+      const listing = await storage.getFarmerProductListing(area.listingId);
+      
+      if (!listing) {
+        return res.status(404).json({ message: "Farmer product listing not found" });
+      }
+      
+      // Admin can delete any delivery area
+      if (req.user.userType === 'admin') {
+        await storage.deleteDeliveryArea(id);
+        return res.json({ success: true, message: "Delivery area deleted successfully" });
+      }
+      
+      // Check if the user is a farmer service provider
+      const serviceProvider = await storage.getServiceProviderByUserId(req.user.id);
+      
+      if (!serviceProvider || serviceProvider.providerType !== 'farmer') {
+        return res.status(403).json({ message: "Only farmers can delete delivery areas" });
+      }
+      
+      // Get farmer details
+      const farmerDetail = await storage.getFarmerDetailByProviderId(serviceProvider.id);
+      
+      if (!farmerDetail || farmerDetail.id !== listing.farmerId) {
+        return res.status(403).json({ message: "You can only delete delivery areas from your own listings" });
+      }
+      
+      await storage.deleteDeliveryArea(id);
+      
+      res.json({
+        success: true,
+        message: "Delivery area deleted successfully"
+      });
+    } catch (error: any) {
+      console.error("Error deleting delivery area:", error);
+      res.status(500).json({ message: error.message });
+    }
+  });
+  
+  // =====================================================================
+  // Product Request routes
+  // =====================================================================
+  
+  // Get all product requests (with filtering options)
+  app.get("/api/product-requests", isAuthenticated, async (req, res) => {
+    try {
+      const filter: any = {};
+      
+      // Only admins can see all requests
+      if (req.user.userType !== 'admin') {
+        // Check if the user is a farmer
+        const serviceProvider = await storage.getServiceProviderByUserId(req.user.id);
+        
+        if (!serviceProvider) {
+          return res.status(403).json({ message: "Access denied" });
+        }
+        
+        // Check if the service provider is a farmer (all providers can access this endpoint)
+        if (serviceProvider.providerType !== 'farmer') {
+          console.log('Note: Provider with type ' + serviceProvider.providerType + ' accessing farmer endpoints');
+        }
+        
+        // Get farmer details
+        const farmerDetail = await storage.getFarmerDetailByProviderId(serviceProvider.id);
+        
+        if (!farmerDetail) {
+          return res.status(403).json({ message: "Farmer details not found" });
+        }
+        
+        // Farmers can only see their own requests
+        filter.farmerId = farmerDetail.id;
+      } else {
+        // Admin can filter by farmerId or status
+        if (req.query.farmerId) {
+          filter.farmerId = parseInt(req.query.farmerId as string);
+        }
+        
+        if (req.query.status) {
+          filter.status = req.query.status as string;
+        }
+      }
+      
+      const requests = await storage.getProductRequests(filter);
+      res.json(requests);
+    } catch (error: any) {
+      console.error("Error fetching product requests:", error);
+      res.status(500).json({ message: error.message });
+    }
+  });
+  
+  // Create a new product request (requires authentication as a farmer)
+  app.post("/api/product-requests", isAuthenticated, async (req, res) => {
+    try {
+      // Check if the user is a farmer service provider
+      const serviceProvider = await storage.getServiceProviderByUserId(req.user.id);
+      
+      if (!serviceProvider) {
+        return res.status(403).json({ message: "Only farmers can create product requests" });
+      }
+      
+      // Check if the service provider is a farmer (all providers can access this endpoint)
+      if (serviceProvider.providerType !== 'farmer') {
+        console.log('Note: Provider with type ' + serviceProvider.providerType + ' creating product request');
+      }
+      
+      // Get farmer details
+      const farmerDetail = await storage.getFarmerDetailByProviderId(serviceProvider.id);
+      
+      if (!farmerDetail) {
+        return res.status(403).json({ message: "Farmer details not found. Please complete your profile." });
+      }
+      
+      // Validate required fields
+      const { requestedProductName, description, category, unit, imageUrl } = req.body;
+      
+      if (!requestedProductName || !description || !category || !unit) {
+        return res.status(400).json({ message: "Missing required fields" });
+      }
+      
+      const requestData = {
+        farmerId: farmerDetail.id,
+        requestedProductName,
+        description,
+        category,
+        unit,
+        imageUrl: imageUrl || null,
+        status: 'pending',
+        adminNotes: null
+      };
+      
+      const request = await storage.createProductRequest(requestData);
+      
+      res.status(201).json({
+        success: true,
+        message: "Product request submitted successfully",
+        request
+      });
+    } catch (error: any) {
+      console.error("Error creating product request:", error);
+      res.status(400).json({ message: error.message });
+    }
+  });
+  
+  // Admin response to a product request (approve/reject)
+  app.patch("/api/product-requests/:id", isAuthenticated, hasRole(["admin"]), async (req, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      const request = await storage.getProductRequest(id);
+      
+      if (!request) {
+        return res.status(404).json({ message: "Product request not found" });
+      }
+      
+      const { status, adminNotes } = req.body;
+      
+      if (!status || !['approved', 'rejected'].includes(status)) {
+        return res.status(400).json({ message: "Valid status (approved/rejected) is required" });
+      }
+      
+      const updateData = {
+        status,
+        adminNotes: adminNotes || null
+      };
+      
+      const updatedRequest = await storage.updateProductRequest(id, updateData);
+      
+      // If approved, create a new grocery product
+      if (status === 'approved') {
+        // The admin can include additional product details in the request
+        const { subcategoryId, displayName, description, price, imageUrl, isOrganic } = req.body;
+        
+        if (subcategoryId) {
+          try {
+            const productData = {
+              name: displayName || request.requestedProductName,
+              description: description || request.description,
+              price: price || 0, // Price is optional
+              subcategoryId,
+              unit: request.unit,
+              imageUrl: imageUrl || request.imageUrl,
+              isOrganic: isOrganic === true,
+              isActive: true
+            };
+            
+            const newProduct = await storage.createGroceryProduct(productData);
+            
+            return res.json({
+              success: true,
+              message: "Product request approved and new product created",
+              request: updatedRequest,
+              product: newProduct
+            });
+          } catch (productError: any) {
+            console.error("Error creating product from request:", productError);
+            return res.status(400).json({ 
+              success: false,
+              message: "Request approved but product creation failed",
+              error: productError.message,
+              request: updatedRequest
+            });
+          }
+        }
+      }
+      
+      res.json({
+        success: true,
+        message: `Product request ${status}`,
+        request: updatedRequest
+      });
+    } catch (error: any) {
+      console.error("Error processing product request:", error);
+      res.status(500).json({ message: error.message });
+    }
+  });
+
+  const httpServer = createServer(app);
+  return httpServer;
+}

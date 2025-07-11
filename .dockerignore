@@ -1,0 +1,54 @@
+# Node.js dependencies
+node_modules
+npm-debug.log
+yarn-error.log
+
+# Build directories
+dist
+build
+coverage
+
+# Environment files
+.env
+.env.local
+.env.development
+.env.test
+.env.production
+
+# Development files
+.git
+.github
+.gitignore
+.vscode
+*.md
+!README.md
+*.log
+
+# Test files and directories
+__tests__
+test
+tests
+
+# Temporary files
+.tmp
+temp
+*.tmp
+
+# Docker-related files
+Dockerfile*
+docker-compose*
+.dockerignore
+
+# Misc
+.DS_Store
+.idea
+*.tgz
+project.zip
+complete_project.zip
+*.zip
+temp_export
+complete_export
+download_parts
+
+# Direct uploads folder (mounted as a volume)
+uploads/*

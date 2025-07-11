@@ -1,0 +1,81 @@
+Search
+Time
+Log
+05-06 06:08:39
+Taluk manager for Thiruporur, Chengalpathu already exists.
+05-06 06:09:13
+'getLocalProductView',
+05-06 06:09:13
+'listLocalProductViews',
+05-06 06:09:13
+'createLocalProduct',
+05-06 06:09:13
+'getLocalProducts',
+05-06 06:09:13
+'getLocalProductById',
+05-06 06:09:13
+'updateLocalProduct',
+05-06 06:09:13
+... 79 more items
+05-06 06:09:13
+]
+05-06 06:09:13
+Type of getGroceryProducts: function
+05-06 06:09:13
+Filtering products by category: 4 (type: string )
+05-06 06:09:13
+Filter applied for grocery products: { category: '4' }
+05-06 06:09:13
+Type of getGroceryProducts: function
+05-06 06:09:13
+Filtering products by category: 4 (type: string)
+05-06 06:09:13
+Debug SQL equivalent: SELECT * FROM grocery_products WHERE category = '4'
+05-06 06:09:13
+Successfully retrieved 3 grocery products
+05-06 06:09:13
+Found 3 oil products in the database
+05-06 06:09:13
+Filter applied for grocery products: {}
+05-06 06:09:13
+Type of getGroceryProducts: function
+05-06 06:09:14
+12:39:14 AM [express] GET /api/grocery/categories 304 in 194ms :: [{"id":6,"name":"Ayurvedic products…
+05-06 06:09:14
+12:39:14 AM [express] GET /api/farmer-products 304 in 197ms :: []
+05-06 06:09:14
+Successfully retrieved 8 grocery products
+05-06 06:09:14
+[AUTH DEBUG] Deserializing user ID: 2
+05-06 06:09:14
+12:39:14 AM [express] GET /api/grocery/products 304 in 255ms :: [{"id":41,"name":"Potato","descriptio…
+05-06 06:09:14
+[AUTH DEBUG] Deserialized user: ID: 2, Username: Selvi
+05-06 06:09:14
+[AUTH DEBUG] Deserializing user ID: 2
+05-06 06:09:14
+[AUTH DEBUG] Deserializing user ID: 2
+05-06 06:09:14
+[AUTH DEBUG] Deserialized user: ID: 2, Username: Selvi
+05-06 06:09:14
+[AUTH DEBUG] Deserialized user: ID: 2, Username: Selvi
+05-06 06:09:19
+[AUTH DEBUG] Deserializing user ID: 2
+05-06 06:09:19
+[AUTH DEBUG] Deserializing user ID: 2
+05-06 06:09:19
+[AUTH DEBUG] Deserializing user ID: 2
+05-06 06:09:19
+[AUTH DEBUG] Deserialized user: ID: 2, Username: Selvi
+05-06 06:09:19
+[SUBCATEGORY API] Received query params: { parentCategoryId: '4', _: '1746491959286' }
+05-06 06:09:19
+[SUBCATEGORY API] Authentication status: Authenticated as Selvi
+05-06 06:09:19
+[SUBCATEGORY API] Storage type: DatabaseStorage
+05-06 06:09:19
+[SUBCATEGORY API] ⚠️ Oils category detected - special handling enabled
+05-06 06:09:19
+[SUBCATEGORY API] Looking up subcategories with parentCategoryId: 4, isActive: true
+05-06 06:09:19
+[SUBCATEGOR

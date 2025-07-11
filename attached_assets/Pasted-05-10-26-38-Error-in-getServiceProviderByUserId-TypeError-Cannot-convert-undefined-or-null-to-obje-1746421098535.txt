@@ -1,0 +1,44 @@
+05 10:26:38
+Error in getServiceProviderByUserId: TypeError: Cannot convert undefined or null to object
+05-05 10:26:38
+at Function.entries ()
+05-05 10:26:38
+at orderSelectedFields (file:///home/runner/workspace/node_modules/drizzle-orm/utils.js:53:17)
+05-05 10:26:38
+at file:///home/runner/workspace/node_modules/drizzle-orm/utils.js:63:22
+05-05 10:26:38
+at Array.reduce ()
+05-05 10:26:38
+at orderSelectedFields (file:///home/runner/workspace/node_modules/drizzle-orm/utils.js:53:33)
+05-05 10:26:38
+at file:///home/runner/workspace/node_modules/drizzle-orm/pg-core/query-builders/select.js:684:26
+05-05 10:26:38
+at Object.startActiveSpan (file:///home/runner/workspace/node_modules/drizzle-orm/tracing.js:8:14)
+05-05 10:26:38
+at PgSelectBase._prepare (file:///home/runner/workspace/node_modules/drizzle-orm/pg-core/query-builders/select.js:683:19)
+05-05 10:26:38
+at file:///home/runner/workspace/node_modules/drizzle-orm/pg-core/query-builders/select.js:708:19
+05-05 10:26:38
+at Object.startActiveSpan (file:///home/runner/workspace/node_modules/drizzle-orm/tracing.js:8:14)
+05-05 10:26:38
+=== FARMER PRODUCT LISTING ERROR ===
+05-05 10:26:38
+Error creating farmer product listing: TypeError: Cannot convert undefined or null to object
+05-05 10:26:38
+at Function.entries ()
+05-05 10:26:38
+at orderSelectedFields (file:///home/runner/workspace/node_modules/drizzle-orm/utils.js:53:17)
+05-05 10:26:38
+at file:///home/runner/workspace/node_modules/drizzle-orm/utils.js:63:22
+05-05 10:26:38
+at Array.reduce ()
+05-05 10:26:38
+at orderSelectedFields (file:///home/runner/workspace/node_modules/drizzle-orm/utils.js:53:33)
+05-05 10:26:38
+at file:///home/runner/workspace/node_modules/drizzle-orm/pg-core/query-builders/select.js:684:26
+05-05 10:26:38
+at Object.startActiveSpan (file:///home/runner/workspace/node_modules/drizzle-orm/tracing.js:8:14)
+05-05 10:26:38
+at PgSelectBase._prepare (file:///home/runner/workspace/node_modules/drizzle-orm/pg-core/query-builders/select.js:683:19)
+05-05 10:26:38
+at file:///home/runner

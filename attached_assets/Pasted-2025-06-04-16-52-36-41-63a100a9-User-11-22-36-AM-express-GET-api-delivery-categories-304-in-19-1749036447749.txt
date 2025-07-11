@@ -1,0 +1,108 @@
+2025-06-04 16:52:36.41
+63a100a9
+User
+11:22:36 AM [express] GET /api/delivery/categories 304 in 192ms :: [{"id":3,"name":"Four Wheeler","de…
+2025-06-04 16:52:36.42
+63a100a9
+User
+[AUTH DEBUG] Deserializing user ID: 5
+2025-06-04 16:52:36.47
+63a100a9
+User
+[AUTH DEBUG] Deserialized user: ID: 5, Username: Customer
+2025-06-04 16:52:36.48
+63a100a9
+User
+[AUTH DEBUG] Deserializing user ID: 5
+2025-06-04 16:52:36.52
+63a100a9
+User
+[AUTH DEBUG] Deserialized user: ID: 5, Username: Customer
+2025-06-04 16:52:37.00
+63a100a9
+User
+[AUTH DEBUG] Deserializing user ID: 5
+2025-06-04 16:52:37.04
+63a100a9
+User
+[AUTH DEBUG] Deserialized user: ID: 5, Username: Customer
+2025-06-04 16:52:41.98
+63a100a9
+User
+[AUTH DEBUG] Deserializing user ID: 5
+2025-06-04 16:52:42.03
+63a100a9
+User
+[AUTH DEBUG] Deserialized user: ID: 5, Username: Customer
+2025-06-04 16:52:42.10
+63a100a9
+User
+11:22:42 AM [express] GET /api/delivery/agents 400 in 164ms :: {"message":"District is required"}
+2025-06-04 16:52:46.07
+63a100a9
+User
+[AUTH DEBUG] Deserializing user ID: 5
+2025-06-04 16:52:46.12
+63a100a9
+User
+[AUTH DEBUG] Deserialized user: ID: 5, Username: Customer
+2025-06-04 16:52:46.16
+63a100a9
+User
+11:22:46 AM [express] GET /api/delivery/agents 400 in 133ms :: {"message":"District is required"}
+2025-06-04 16:53:28.99
+63a100a9
+User
+[AUTH DEBUG] Deserializing user ID: 5
+2025-06-04 16:53:29.03
+63a100a9
+User
+[AUTH DEBUG] Deserialized user: ID: 5, Username: Customer
+2025-06-04 16:53:36.73
+63a100a9
+User
+[AUTH DEBUG] Deserializing user ID: 5
+2025-06-04 16:53:36.78
+63a100a9
+User
+[AUTH DEBUG] Deserialized user: ID: 5, Username: Customer
+2025-06-04 16:53:36.83
+63a100a9
+User
+11:23:36 AM [express] GET /api/notifications/unread-count 304 in 137ms
+2025-06-04 16:53:36.89
+63a100a9
+User
+[AUTH DEBUG] Deserializing user ID: 5
+2025-06-04 16:53:36.93
+63a100a9
+User
+[AUTH DEBUG] Deserialized user: ID: 5, Username: Customer
+2025-06-04 16:53:36.98
+63a100a9
+User
+11:23:36 AM [express] GET /api/notifications 304 in 277ms
+2025-06-04 16:54:37.36
+63a100a9
+User
+[AUTH DEBUG] Deserializing user ID: 5
+2025-06-04 16:54:37.40
+63a100a9
+User
+[AUTH DEBUG] Deserialized user: ID: 5, Username: Customer
+2025-06-04 16:54:37.45
+63a100a9
+User
+11:24:37 AM [express] GET /api/notifications/unread-count 304 in 288ms
+2025-06-04 16:54:37.46
+63a100a9
+User
+[AUTH DEBUG] Deserializing user ID: 5
+2025-06-04 16:54:37.51
+63a100a9
+User
+[AUTH DEBUG] Deserialized user: ID: 5, Username: Customer
+2025-06-04 16:54:37.57
+63a100a9
+User
+11:24:37 AM [express] GET /api/notifications 304 in 295ms

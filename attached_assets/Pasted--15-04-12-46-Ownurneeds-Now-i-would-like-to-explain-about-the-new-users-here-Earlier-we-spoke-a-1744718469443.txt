@@ -1,0 +1,14 @@
+[15/04, 12:46] Ownurneeds: Now, i would like to explain about the new users here. Earlier we spoke about managerial associates and registered users who are customers here. I wanted to bring the third set of people called service providers
+[15/04, 12:54] Ownurneeds: 2). Below are the different types of service providers. (a). Farmers (b). Manufactures (c). Booking agents (d). Taxi service providers (e). Transportation agents (f). Rental providers (g). Recycling agents
+[15/04, 12:57] Ownurneeds: 3). There should be a provision called "get associated" in the landing page.
+[15/04, 13:02] Ownurneeds: (4). When they login with the option "get associated", it should direct to a page where  there are visuals buttons with  names on it as farmers, manufactures, booking agents, taxi service providers, transportation agents, rental equipment providers and recycling agents.
+[15/04, 17:03] Ownurneeds: (5). When farmer option is selected, there should be a registration form where his details are collected. This includes name, phone number, address, pincode, products interested(a check box with title vegetable and fruit. When they are selected, it should give them various fruits and vegetables as an option). On submission of the form, it should direct tova page where all vegetables and fruits are shown as an image and a button to navigate inside. When pressed, it should ask for details as below (1). Which area you would like to sell your products. It should display district, taluk and pin codes from him to select. (2). Quantity (3). Price. (4). Delivery support required(yes/no),
+[15/04, 17:06] Ownurneeds: (6). Similarly it should function for manufacturers
+[15/04, 17:12] Ownurneeds: (7). When the rental agent(he handles bus, flight, train,hotel bookings, all kind of recharges) is clicked, it should be asked for his basic details. Once submitted, it should ask for the area interested with.
+[15/04, 17:16] Ownurneeds: (8). When taxi service providers are clicked, it should again register his basic details, his vehicle details and once submitted it should ask for area of operation(district and taluk should be sufficient here)
+[15/04, 17:17] Ownurneeds: (9). For transport agents, it should be similar to axi service provider
+[15/04, 17:19] Ownurneeds: (10). Similar approch for rental equipment providers
+[15/04, 17:21] Ownurneeds: (11). For recycling agents, the product is restricted to aluminium, copper, brass and plastic.
+[15/04, 17:23] Ownurneeds: All these details should be shown as a directory to admin. For manageral associates, these info should be shown with respect to his area of operation
+[15/04, 17:28] Ownurneeds: Communications should happen via WhatsApp, e. Mail. Tgers should be option to share in facebook, telegram, liniedin
+[15/04, 17:30] Ownurneeds: Next phase i would givebyiubdirections about the process to be handled forveach services

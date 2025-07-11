@@ -1,0 +1,81 @@
+Log
+05-27 16:17:53
+Taluk manager for Tiruvarur, Tiruvarur already exists.
+05-27 16:19:45
+[AUTH DEBUG] Deserializing user ID: 5
+05-27 16:19:45
+[AUTH DEBUG] Deserialized user: ID: 5, Username: Customer
+05-27 16:19:45
+[AUTH DEBUG] Deserialized user: ID: 5, Username: Customer
+05-27 16:19:45
+10:49:45 AM [express] GET /api/notifications 304 in 180ms :: []
+05-27 16:19:45
+10:49:45 AM [express] GET /api/notifications/unread-count 304 in 191ms :: {"count":"0"}
+05-27 16:19:45
+[AUTH DEBUG] Deserializing user ID: 5
+05-27 16:19:45
+[AUTH DEBUG] Deserialized user: ID: 5, Username: Customer
+05-27 16:19:46
+[AUTH DEBUG] Deserializing user ID: 5
+05-27 16:19:46
+[AUTH DEBUG] Deserializing user ID: 5
+05-27 16:19:46
+[AUTH DEBUG] Deserialized user: ID: 5, Username: Customer
+05-27 16:19:46
+PUBLIC API - Local products request with filters: { category: undefined, district: undefined, subcategory: undefined }
+05-27 16:19:46
+Starting listLocalProductViews with filter: { adminApproved: true, status: 'active', isDraft: false }
+05-27 16:19:46
+[AUTH DEBUG] Deserialized user: ID: 5, Username: Customer
+05-27 16:19:46
+[AUTH DEBUG] Deserializing user ID: 5
+05-27 16:19:46
+10:49:46 AM [express] GET /api/local-product-categories 304 in 144ms :: [{"id":1,"name":"Textiles","d…
+05-27 16:19:46
+Error fetching local products: error: operator does not exist: text = integer
+05-27 16:19:46
+at file:///home/runner/workspace/node_modules/@neondatabase/serverless/index.mjs:1345:74
+05-27 16:19:46
+at process.processTicksAndRejections (node:internal/process/task_queues:95:5)
+05-27 16:19:46
+at async NeonPreparedQuery.execute (file:///home/runner/workspace/node_modules/drizzle-orm/neon-serverless/session.js:76:20)
+05-27 16:19:46
+at async DatabaseStorage.listLocalProductViews (file:///home/runner/workspace/dist/index.js:2471:25)
+05-27 16:19:46
+at async file:///home/runner/workspace/dist/index.js:9522:24 {
+05-27 16:19:46
+length: 201,
+05-27 16:19:46
+severity: 'ERROR',
+05-27 16:19:46
+code: '42883',
+05-27 16:19:46
+detail: undefined,
+05-27 16:19:46
+hint: 'No operator matches the given name and argument types. You might need to add explicit type casts.',
+05-27 16:19:46
+position: '1018',
+05-27 16:19:46
+internalPosition: undefined,
+05-27 16:19:46
+internalQuery: undefined,
+05-27 16:19:46
+where: undefined,
+05-27 16:19:46
+schema: undefined,
+05-27 16:19:46
+table: undefined,
+05-27 16:19:46
+column: undefined,
+05-27 16:19:46
+dataType: undefined,
+05-27 16:19:46
+constraint: undefined,
+05-27 16:19:46
+file: 'parse_oper.c',
+05-27 16:19:46
+line: '647',
+05-27 16:19:46
+routine: 'op_error'
+05-27 16:19:46
+}

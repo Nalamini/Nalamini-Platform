@@ -1,0 +1,45 @@
+Error fetching notifications: ReferenceError: notifications is not defined
+05-05 08:57:10
+at DatabaseStorage.getNotificationsByUserId (file:///home/runner/workspace/dist/index.js:1453:39)
+05-05 08:57:10
+at file:///home/runner/workspace/dist/index.js:10360:44
+05-05 08:57:10
+at Layer.handle [as handle_request] (/home/runner/workspace/node_modules/express/lib/router/layer.js:95:5)
+05-05 08:57:10
+at next (/home/runner/workspace/node_modules/express/lib/router/route.js:149:13)
+05-05 08:57:10
+at isAuthenticated (file:///home/runner/workspace/dist/index.js:6039:14)
+05-05 08:57:10
+at Layer.handle [as handle_request] (/home/runner/workspace/node_modules/express/lib/router/layer.js:95:5)
+05-05 08:57:10
+at next (/home/runner/workspace/node_modules/express/lib/router/route.js:149:13)
+05-05 08:57:10
+at Route.dispatch (/home/runner/workspace/node_modules/express/lib/router/route.js:119:3)
+05-05 08:57:10
+at Layer.handle [as handle_request] (/home/runner/workspace/node_modules/express/lib/router/layer.js:95:5)
+05-05 08:57:10
+at /home/runner/workspace/node_modules/express/lib/router/index.js:284:15
+05-05 08:57:10
+3:27:10 AM [express] GET /api/notifications 500 in 218ms :: {"message":"Failed to fetch notification…
+05-05 08:57:10
+[AUTH DEBUG] Deserializing user ID: 2
+05-05 08:57:10
+[AUTH DEBUG] Deserialized user: ID: 2, Username: Selvi
+05-05 08:57:10
+Error fetching unread notification count: ReferenceError: notifications is not defined
+05-05 08:57:10
+at DatabaseStorage.getUnreadNotificationCount (file:///home/runner/workspace/dist/index.js:1456:71)
+05-05 08:57:10
+at file:///home/runner/workspace/dist/index.js:10370:35
+05-05 08:57:10
+at Layer.handle [as handle_request] (/home/runner/workspace/node_modules/express/lib/router/layer.js:95:5)
+05-05 08:57:10
+at next (/home/runner/workspace/node_modules/express/lib/router/route.js:149:13)
+05-05 08:57:10
+at isAuthenticated (file:///home/runner/workspace/dist/index.js:6039:14)
+05-05 08:57:10
+at Layer.handle [as handle_request] (/home/runner/workspace/node_modules/express/lib/router/layer.js:95:5)
+05-05 08:57:10
+at next (/home/runner/workspace/node_modules/express/lib/router/route.js:149:13)
+05-05 08:57:10
+at Route.dispatch (/home

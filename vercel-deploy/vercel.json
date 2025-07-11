@@ -1,0 +1,7 @@
+{
+  "version": 2,
+  "name": "nalamini-api",
+  "rewrites": [
+    { "source": "/(.*)", "destination": "/api" }
+  ]
+}

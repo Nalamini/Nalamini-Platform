@@ -1,0 +1,85 @@
+Log
+07-02 10:26:32
+error proxying request error=dial tcp 127.0.0.1:5000: connect: connection refused
+07-02 10:28:38
+Making Travelomatix request to: http://test.services.travelomatix.com/webservices/index.php/bus_v3/service/Search
+07-02 10:28:38
+Request payload: {
+07-02 10:28:38
+"OriginId": "1",
+07-02 10:28:38
+"DestinationId": "7",
+07-02 10:28:38
+"JourneyDate": "2025-07-04"
+07-02 10:28:38
+}
+07-02 10:28:39
+Response status: 200
+07-02 10:28:39
+Travelomatix response: {
+07-02 10:28:39
+"Status": 0,
+07-02 10:28:39
+"Message": "No Bus Found!!"
+07-02 10:28:39
+}
+07-02 10:28:39
+Bus search completed, found buses: 0
+07-02 10:28:39
+4:58:39 AM [express] POST /api/bus/search 200 in 1876ms :: {"success":true,"traceId":1751432319879,"…
+07-02 10:28:43
+[AUTH DEBUG] Deserializing user ID: 5
+07-02 10:28:43
+[AUTH DEBUG] Deserialized user: ID: 5, Username: Customer
+07-02 10:28:43
+4:58:43 AM [express] GET /api/notifications 304 in 139ms
+07-02 10:28:43
+[AUTH DEBUG] Deserializing user ID: 5
+07-02 10:28:43
+[AUTH DEBUG] Deserialized user: ID: 5, Username: Customer
+07-02 10:28:43
+4:58:43 AM [express] GET /api/notifications/unread-count 304 in 314ms
+07-02 10:28:54
+[AUTH DEBUG] Deserializing user ID: 5
+07-02 10:28:55
+[AUTH DEBUG] Deserialized user: ID: 5, Username: Customer
+07-02 10:28:55
+Bus search request received: {
+07-02 10:28:55
+sourceCity: 'Chennai',
+07-02 10:28:55
+destinationCity: 'Bangalore',
+07-02 10:28:55
+travelDate: '2025-07-03',
+07-02 10:28:55
+passengers: 1
+07-02 10:28:55
+}
+07-02 10:28:55
+Attempting Travelomatix bus search with payload: { OriginId: '1', DestinationId: '7', JourneyDate: '2025-07-03' }
+07-02 10:28:55
+Making Travelomatix request to: http://test.services.travelomatix.com/webservices/index.php/bus_v3/service/Search
+07-02 10:28:55
+Request payload: {
+07-02 10:28:55
+"OriginId": "1",
+07-02 10:28:55
+"DestinationId": "7",
+07-02 10:28:55
+"JourneyDate": "2025-07-03"
+07-02 10:28:55
+}
+07-02 10:28:55
+Response status: 200
+07-02 10:28:55
+Travelomatix response: {
+07-02 10:28:55
+"Status": 0,
+07-02 10:28:55
+"Message": "No Bus Found!!"
+07-02 10:28:55
+}
+07-02 10:28:55
+Bus search completed, found buses: 0
+07-02 10:28:55
+4:58:55 AM [express] POST

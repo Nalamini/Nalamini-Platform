@@ -1,0 +1,56 @@
+05-05 20:02:36
+[AUTH DEBUG] Deserialized user: ID: 1, Username: admin
+05-05 20:02:36
+2:32:36 PM [express] GET /api/admin/grocery/subcategories 200 in 190ms :: [{"id":8,"name":"Beetroot"…
+05-05 20:02:37
+[AUTH DEBUG] Deserializing user ID: 1
+05-05 20:02:37
+[AUTH DEBUG] Deserialized user: ID: 1, Username: admin
+05-05 20:02:37
+[AUTH DEBUG] Role check - User: admin, Type: admin, Required Roles: admin
+05-05 20:02:37
+2:32:37 PM [express] POST /api/admin/grocery/subcategories/7/image 200 in 235ms :: {"message":"Subca…
+05-05 20:02:37
+[AUTH DEBUG] Deserializing user ID: 1
+05-05 20:02:37
+[AUTH DEBUG] Deserialized user: ID: 1, Username: admin
+05-05 20:02:37
+2:32:37 PM [express] GET /api/admin/grocery/subcategories 200 in 192ms :: [{"id":8,"name":"Beetroot"…
+05-05 20:02:41
+[AUTH DEBUG] Deserializing user ID: 1
+05-05 20:02:41
+[AUTH DEBUG] Deserialized user: ID: 1, Username: admin
+05-05 20:02:44
+[AUTH DEBUG] Deserializing user ID: 1
+05-05 20:02:44
+[AUTH DEBUG] Deserialized user: ID: 1, Username: admin
+05-05 20:02:44
+2:32:44 PM [express] GET /api/notifications 304 in 186ms :: []
+05-05 20:02:45
+[AUTH DEBUG] Deserializing user ID: 1
+05-05 20:02:45
+[AUTH DEBUG] Deserialized user: ID: 1, Username: admin
+05-05 20:02:45
+2:32:45 PM [express] GET /api/notifications/unread-count 304 in 185ms :: {"count":"0"}
+05-05 20:02:52
+[AUTH DEBUG] Deserializing user ID: 1
+05-05 20:02:52
+[AUTH DEBUG] Deserialized user: ID: 1, Username: admin
+05-05 20:02:52
+[AUTH DEBUG] Role check - User: admin, Type: admin, Required Roles: admin
+05-05 20:02:52
+2:32:52 PM [express] PUT /api/admin/grocery/subcategories/11 200 in 240ms :: {"id":11,"name":"Palm o…
+05-05 20:02:53
+[AUTH DEBUG] Deserializing user ID: 1
+05-05 20:02:53
+[AUTH DEBUG] Deserialized user: ID: 1, Username: admin
+05-05 20:02:53
+2:32:53 PM [express] GET /api/admin/grocery/subcategories 200 in 190ms :: [{"id":8,"name":"Beetroot"…
+05-05 20:02:53
+[AUTH DEBUG] Deserializing user ID: 1
+05-05 20:02:53
+[AUTH DEBUG] Deserialized user: ID: 1, Username: admin
+05-05 20:02:53
+[AUTH DEBUG] Role check - User: admin, Type: admin, Required Roles: admin
+05-05 20:02:53
+2:32:53 PM [express

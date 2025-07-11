@@ -1,0 +1,21 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">Nalamini Service Platform</string>
+    <string name="title_activity_main">Nalamini</string>
+    <string name="package_name">com.nalamini.app</string>
+    <string name="custom_url_scheme">nalamini</string>
+    
+    <!-- Permission descriptions -->
+    <string name="camera_permission_description">Camera access is required for document uploads and profile pictures</string>
+    <string name="location_permission_description">Location access is required for taxi services and delivery tracking</string>
+    <string name="notification_permission_description">Notifications keep you updated on service status</string>
+    
+    <!-- Service descriptions -->
+    <string name="taxi_service_description">Book reliable taxi services across Tamil Nadu</string>
+    <string name="delivery_service_description">Fast delivery services for packages and documents</string>
+    <string name="rental_service_description">Rent equipment and vehicles for your needs</string>
+    <string name="local_products_description">Discover authentic local products from Tamil Nadu</string>
+    <string name="grocery_service_description">Fresh groceries delivered to your doorstep</string>
+    <string name="recharge_service_description">Mobile and DTH recharge services</string>
+    <string name="recycling_service_description">Eco-friendly recycling and waste management</string>
+</resources>

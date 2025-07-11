@@ -1,0 +1,88 @@
+2025-06-03 08:33:08.68
+9f90385c
+User
+[AUTH DEBUG] Deserialized user: ID: 872, Username: Test farmer12
+2025-06-03 08:33:08.72
+9f90385c
+User
+[AUTH DEBUG] Deserialized user: ID: 872, Username: Test farmer12
+2025-06-03 08:33:08.72
+9f90385c
+User
+[AUTH DEBUG] Deserialized user: ID: 872, Username: Test farmer12
+2025-06-03 08:33:08.73
+9f90385c
+User
+3:03:08 AM [express] GET /api/notifications/unread-count 304 in 295ms
+2025-06-03 08:33:08.77
+9f90385c
+User
+3:03:08 AM [express] GET /api/notifications 304 in 285ms
+2025-06-03 08:33:24.78
+9f90385c
+User
+[AUTH DEBUG] Deserializing user ID: 872
+2025-06-03 08:33:24.78
+9f90385c
+User
+[AUTH DEBUG] Deserializing user ID: 872
+2025-06-03 08:33:24.82
+9f90385c
+User
+[AUTH DEBUG] Deserialized user: ID: 872, Username: Test farmer12
+2025-06-03 08:33:24.83
+9f90385c
+User
+[AUTH DEBUG] Deserialized user: ID: 872, Username: Test farmer12
+2025-06-03 08:33:24.97
+9f90385c
+User
+3:03:24 AM [express] GET /api/provider/products 304 in 387ms :: []
+2025-06-03 08:33:27.63
+9f90385c
+User
+[AUTH DEBUG] Deserializing user ID: 872
+2025-06-03 08:33:27.68
+9f90385c
+User
+[AUTH DEBUG] Deserialized user: ID: 872, Username: Test farmer12
+2025-06-03 08:33:29.87
+9f90385c
+User
+[AUTH DEBUG] Deserializing user ID: 872
+2025-06-03 08:33:29.92
+9f90385c
+User
+[AUTH DEBUG] Deserialized user: ID: 872, Username: Test farmer12
+2025-06-03 08:33:32.77
+9f90385c
+User
+[AUTH DEBUG] Deserializing user ID: 872
+2025-06-03 08:33:32.82
+9f90385c
+User
+[AUTH DEBUG] Deserialized user: ID: 872, Username: Test farmer12
+2025-06-03 08:33:35.20
+9f90385c
+User
+[AUTH DEBUG] Deserializing user ID: 872
+2025-06-03 08:33:35.25
+9f90385c
+User
+[AUTH DEBUG] Deserialized user: ID: 872, Username: Test farmer12
+2025-06-03 08:35:21.16
+9f90385c
+User
+[AUTH DEBUG] Deserializing user ID: 872
+2025-06-03 08:35:21.23
+9f90385c
+User
+[AUTH DEBUG] Deserialized user: ID: 872, Username: Test farmer12
+2025-06-03 08:35:21.67
+9f90385c
+User
+[AUTH DEBUG] Deserializing user ID: 872
+2025-06-03 08:35:21.72
+9f90385c
+User
+[AUTH DEBUG] Deserialized user: ID: 872, Username: Test farmer12

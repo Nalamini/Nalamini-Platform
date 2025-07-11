@@ -1,0 +1,58 @@
+15 15:08:21
+[AUTH DEBUG] Deserializing user ID: 13
+06-15 15:08:21
+[AUTH DEBUG] Deserialized user: ID: 13, Username: bm_coimbatore
+06-15 15:08:22
+[AUTH DEBUG] Deserialized user: ID: 13, Username: bm_coimbatore
+06-15 15:08:23
+[AUTH DEBUG] Deserializing user ID: 13
+06-15 15:08:23
+[AUTH DEBUG] Deserializing user ID: 13
+06-15 15:08:23
+[AUTH DEBUG] Deserialized user: ID: 13, Username: bm_coimbatore
+06-15 15:08:23
+[AUTH DEBUG] Deserialized user: ID: 13, Username: bm_coimbatore
+06-15 15:08:23
+9:38:23 AM [express] GET /api/youtube/channel-info 304 in 2288ms :: {"channelId":"UCp3MOo1CpFCa6awia…
+06-15 15:08:33
+[AUTH DEBUG] Deserializing user ID: 13
+06-15 15:08:33
+[AUTH DEBUG] Deserialized user: ID: 13, Username: bm_coimbatore
+06-15 15:08:33
+9:38:33 AM [express] GET /api/videos/analytics/dashboard 304 in 194ms :: {"totalViews":0,"totalWatch…
+06-15 15:08:33
+[AUTH DEBUG] Deserializing user ID: 13
+06-15 15:08:33
+[AUTH DEBUG] Deserializing user ID: 13
+06-15 15:08:33
+[AUTH DEBUG] Deserializing user ID: 13
+06-15 15:08:33
+[AUTH DEBUG] Deserialized user: ID: 13, Username: bm_coimbatore
+06-15 15:08:33
+[AUTH DEBUG] Deserialized user: ID: 13, Username: bm_coimbatore
+06-15 15:08:33
+[AUTH DEBUG] Deserialized user: ID: 13, Username: bm_coimbatore
+06-15 15:08:33
+9:38:33 AM [express] GET /api/videos/my-uploads 304 in 344ms :: []
+06-15 15:08:34
+[AUTH DEBUG] Deserializing user ID: 13
+06-15 15:08:34
+[AUTH DEBUG] Deserialized user: ID: 13, Username: bm_coimbatore
+06-15 15:08:51
+[AUTH DEBUG] Deserializing user ID: 13
+06-15 15:08:51
+[AUTH DEBUG] Deserialized user: ID: 13, Username: bm_coimbatore
+06-15 15:08:51
+9:38:51 AM [express] GET /api/notifications/unread-count 304 in 298ms
+06-15 15:09:21
+[AUTH DEBUG] Deserializing user ID: 13
+06-15 15:09:21
+[AUTH DEBUG] Deserialized user: ID: 13, Username: bm_coimbatore
+06-15 15:09:21
+9:39:21 AM [express] GET /api/notifications 304 in 293ms
+06-15 15:09:22
+[AUTH DEBUG] Deserializing user ID: 13
+06-15 15:09:22
+[AUTH DEBUG] Deserialized user: ID: 13, Username: bm_coimbatore
+06-15 15:09:22
+9:39:22 AM [express

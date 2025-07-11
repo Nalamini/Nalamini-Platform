@@ -1,0 +1,108 @@
+2025-06-04 15:26:11.09
+896d2f0f
+User
+hint: undefined,
+2025-06-04 15:26:11.09
+896d2f0f
+User
+position: '275',
+2025-06-04 15:26:11.09
+896d2f0f
+User
+internalPosition: undefined,
+2025-06-04 15:26:11.09
+896d2f0f
+User
+internalQuery: undefined,
+2025-06-04 15:26:11.09
+896d2f0f
+User
+where: undefined,
+2025-06-04 15:26:11.09
+896d2f0f
+User
+schema: undefined,
+2025-06-04 15:26:11.09
+896d2f0f
+User
+table: undefined,
+2025-06-04 15:26:11.09
+896d2f0f
+User
+column: undefined,
+2025-06-04 15:26:11.09
+896d2f0f
+User
+dataType: undefined,
+2025-06-04 15:26:11.09
+896d2f0f
+User
+constraint: undefined,
+2025-06-04 15:26:11.09
+896d2f0f
+User
+file: 'parse_relation.c',
+2025-06-04 15:26:11.09
+896d2f0f
+User
+line: '3722',
+2025-06-04 15:26:11.09
+896d2f0f
+User
+routine: 'errorMissingColumn'
+2025-06-04 15:26:11.09
+896d2f0f
+User
+}
+2025-06-04 15:26:11.09
+896d2f0f
+User
+Error stack: error: column "total_deliveries" does not exist
+2025-06-04 15:26:11.09
+896d2f0f
+User
+at file:///home/runner/workspace/node_modules/@neondatabase/serverless/index.mjs:1345:74
+2025-06-04 15:26:11.09
+896d2f0f
+User
+at process.processTicksAndRejections (node:internal/process/task_queues:95:5)
+2025-06-04 15:26:11.09
+896d2f0f
+User
+at async NeonPreparedQuery.execute (file:///home/runner/workspace/node_modules/drizzle-orm/neon-serverless/session.js:76:20)
+2025-06-04 15:26:11.09
+896d2f0f
+User
+at async DatabaseStorage.getDeliveryAgentByUserId (file:///home/runner/workspace/dist/index.js:3966:25)
+2025-06-04 15:26:11.09
+896d2f0f
+User
+at async file:///home/runner/workspace/dist/index.js:10268:29
+2025-06-04 15:26:11.28
+896d2f0f
+User
+9:56:11 AM [express] POST /api/provider/delivery/register 500 in 476ms :: {"message":"Error register…
+2025-06-04 15:26:12.56
+896d2f0f
+User
+[AUTH DEBUG] Deserializing user ID: 879
+2025-06-04 15:26:12.61
+896d2f0f
+User
+[AUTH DEBUG] Deserialized user: ID: 879, Username: Three wheeler Transport Service
+2025-06-04 15:26:12.66
+896d2f0f
+User
+9:56:12 AM [express] GET /api/notifications/unread-count 304 in 148ms
+2025-06-04 15:26:15.77
+31ccf7b8
+System
+system: received signal terminated
+2025-06-04 15:26:15.79
+31ccf7b8
+System
+command finished with error [npm run start]: signal: terminated
+2025-06-04 15:26:15.84
+31ccf7b8
+System
+main done, exiting

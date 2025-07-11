@@ -1,0 +1,73 @@
+Search
+Time
+Log
+06-05 06:54:02
+Checking taluk managers for Vellore...
+06-05 06:54:39
+1:24:39 AM [express] GET /api/notifications 304 in 149ms
+06-05 06:54:39
+[AUTH DEBUG] Deserializing user ID: 1
+06-05 06:54:39
+[AUTH DEBUG] Deserializing user ID: 1
+06-05 06:54:39
+[AUTH DEBUG] Deserializing user ID: 1
+06-05 06:54:39
+[AUTH DEBUG] Deserialized user: ID: 1, Username: admin
+06-05 06:54:39
+[AUTH DEBUG] Deserialized user: ID: 1, Username: admin
+06-05 06:54:39
+[AUTH DEBUG] Deserialized user: ID: 1, Username: admin
+06-05 06:54:39
+Error fetching delivery orders: error: syntax error at or near "="
+06-05 06:54:39
+at file:///home/runner/workspace/node_modules/@neondatabase/serverless/index.mjs:1345:74
+06-05 06:54:39
+at process.processTicksAndRejections (node:internal/process/task_queues:95:5)
+06-05 06:54:39
+at async NeonPreparedQuery.execute (file:///home/runner/workspace/node_modules/drizzle-orm/neon-serverless/session.js:76:20)
+06-05 06:54:39
+at async DatabaseStorage.getDeliveryOrdersByCustomerId (file:///home/runner/workspace/dist/index.js:4082:16)
+06-05 06:54:39
+at async file:///home/runner/workspace/dist/index.js:10749:22 {
+06-05 06:54:39
+length: 91,
+06-05 06:54:39
+severity: 'ERROR',
+06-05 06:54:39
+code: '42601',
+06-05 06:54:39
+detail: undefined,
+06-05 06:54:39
+hint: undefined,
+06-05 06:54:39
+position: '676',
+06-05 06:54:39
+internalPosition: undefined,
+06-05 06:54:39
+internalQuery: undefined,
+06-05 06:54:39
+where: undefined,
+06-05 06:54:39
+schema: undefined,
+06-05 06:54:39
+table: undefined,
+06-05 06:54:39
+column: undefined,
+06-05 06:54:39
+dataType: undefined,
+06-05 06:54:39
+constraint: undefined,
+06-05 06:54:39
+file: 'scan.l',
+06-05 06:54:39
+line: '1244',
+06-05 06:54:39
+routine: 'scanner_yyerror'
+06-05 06:54:39
+}
+06-05 06:54:39
+1:24:39 AM [express] GET /api/delivery/orders 500 in 340ms :: {"message":"Error fetching orders"}
+06-05 06:54:39
+1:24:39 AM [express] GET /api/delivery/categories 200 in 337ms :: [{"id":3,"name":"Four Wheeler","de…
+06-05 06:54:39
+[AUTH DEBUG] Deseriali
