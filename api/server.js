@@ -88,7 +88,7 @@ app.use((err, req, res, _next) => {
 
 // Run locally
 if (require.main === module) {
-  const PORT = process.env.PORT || 3000;
+  const PORT = process.env.PORT;
   app.listen(PORT, () => {
     console.log(`🚀 Server running on http://localhost:${PORT}`);
   });
