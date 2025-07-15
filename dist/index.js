@@ -8632,20 +8632,12 @@ var BusService = class {
 // server/services/imageService.ts
 import * as path from "path";
 import * as fs from "fs";
-import { fileURLToPath } from "url";
-
-const __dirname = path.dirname(fileURLToPath(import.meta.url));
-
-// Always use absolute path based on current file directory
-const uploadsDir = path.join(__dirname, "..", "uploads");
+var uploadsDir = path.join(process.cwd(), "uploads");
 fs.mkdirSync(uploadsDir, { recursive: true });
-
-const categoryImagesDir = path.join(uploadsDir, "grocery-categories");
-const subcategoryImagesDir = path.join(uploadsDir, "grocery-subcategories");
-
+var categoryImagesDir = path.join(uploadsDir, "grocery-categories");
+var subcategoryImagesDir = path.join(uploadsDir, "grocery-subcategories");
 fs.mkdirSync(categoryImagesDir, { recursive: true });
 fs.mkdirSync(subcategoryImagesDir, { recursive: true });
-
 var fallbackImages = {
   // Default fallback image for any missing image
   default: "/uploads/fallback/default.svg",
@@ -15507,42 +15499,32 @@ import { createServer as createViteServer, createLogger } from "vite";
 import { defineConfig } from "vite";
 import react from "@vitejs/plugin-react";
 import themePlugin from "@replit/vite-plugin-shadcn-theme-json";
+import path3 from "path";
 import runtimeErrorOverlay from "@replit/vite-plugin-runtime-error-modal";
-import path from "path";
-import { fileURLToPath } from "url";
-
-// ✅ Fix for import.meta.dirname
-const __filename = fileURLToPath(import.meta.url);
-__dirname = path.dirname(__filename);
-
-export default async function () {
-  const plugins = [
+var vite_config_default = defineConfig({
+  plugins: [
     react(),
     runtimeErrorOverlay(),
     themePlugin(),
-  ];
-
-  if (process.env.NODE_ENV !== "production" && process.env.REPL_ID !== undefined) {
-    const { cartographer } = await import("@replit/vite-plugin-cartographer");
-    plugins.push(cartographer());
+    ...process.env.NODE_ENV !== "production" && process.env.REPL_ID !== void 0 ? [
+      await import("@replit/vite-plugin-cartographer").then(
+        (m) => m.cartographer()
+      )
+    ] : []
+  ],
+  resolve: {
+    alias: {
+      "@": path3.resolve(import.meta.dirname, "client", "src"),
+      "@shared": path3.resolve(import.meta.dirname, "shared"),
+      "@assets": path3.resolve(import.meta.dirname, "attached_assets")
+    }
+  },
+  root: path3.resolve(import.meta.dirname, "client"),
+  build: {
+    outDir: path3.resolve(import.meta.dirname, "dist/public"),
+    emptyOutDir: true
   }
-
-  return defineConfig({
-    plugins,
-    resolve: {
-      alias: {
-        "@": path.resolve(__dirname, "client", "src"),
-        "@shared": path.resolve(__dirname, "shared"),
-        "@assets": path.resolve(__dirname, "attached_assets"),
-      },
-    },
-    root: path.resolve(__dirname, "client"),
-    build: {
-      outDir: path.resolve(__dirname, "dist/public"),
-      emptyOutDir: true,
-    },
-  });
-}
+});
 
 // server/vite.ts
 import { nanoid } from "nanoid";
