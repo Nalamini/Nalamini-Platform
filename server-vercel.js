@@ -1,3 +1,6 @@
+import dotenv from 'dotenv';
+dotenv.config();
+
 // server-vercel.js
 import express from 'express';
 import path from 'path';

@@ -7,6 +7,8 @@ import http from "http";
 import { db } from "./db";
 import { videoUploads } from "@shared/schema";
 import { sql, eq, desc, and } from "drizzle-orm";
+import dotenv from "dotenv";
+dotenv.config();
 // import { migrate } from "drizzle-orm/node-postgres/migrator"; // Uncomment if you need it
 
 // Set Node.js HTTP parser limits for large file uploads
@@ -159,9 +161,10 @@ app.use((req, res, next) => {
     server.headersTimeout = 0;
 
     // Start server
-    const port = 5000;
+const port = process.env.PORT ? parseInt(process.env.PORT) : 5000;
+console.log("PORT from env:", process.env.PORT);
 server.listen(port, '0.0.0.0', () => {
-  log(`serving on port ${port}`);
+  log(`✅ Server running on port ${port}`);
 });
   } catch (err) {
     console.error("Failed to start server:", err);

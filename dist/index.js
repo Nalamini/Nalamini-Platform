@@ -15501,30 +15501,35 @@ import react from "@vitejs/plugin-react";
 import themePlugin from "@replit/vite-plugin-shadcn-theme-json";
 import path3 from "path";
 import runtimeErrorOverlay from "@replit/vite-plugin-runtime-error-modal";
-var vite_config_default = defineConfig({
-  plugins: [
+import { fileURLToPath } from "url";
+var __filename = fileURLToPath(import.meta.url);
+var __dirname = path3.dirname(__filename);
+async function vite_config_default() {
+  const plugins = [
     react(),
     runtimeErrorOverlay(),
-    themePlugin(),
-    ...process.env.NODE_ENV !== "production" && process.env.REPL_ID !== void 0 ? [
-      await import("@replit/vite-plugin-cartographer").then(
-        (m) => m.cartographer()
-      )
-    ] : []
-  ],
-  resolve: {
-    alias: {
-      "@": path3.resolve(import.meta.dirname, "client", "src"),
-      "@shared": path3.resolve(import.meta.dirname, "shared"),
-      "@assets": path3.resolve(import.meta.dirname, "attached_assets")
-    }
-  },
-  root: path3.resolve(import.meta.dirname, "client"),
-  build: {
-    outDir: path3.resolve(import.meta.dirname, "dist/public"),
-    emptyOutDir: true
+    themePlugin()
+  ];
+  if (process.env.NODE_ENV !== "production" && process.env.REPL_ID !== void 0) {
+    const { cartographer } = await import("@replit/vite-plugin-cartographer");
+    plugins.push(cartographer());
   }
-});
+  return defineConfig({
+    plugins,
+    resolve: {
+      alias: {
+        "@": path3.resolve(__dirname, "client", "src"),
+        "@shared": path3.resolve(__dirname, "shared"),
+        "@assets": path3.resolve(__dirname, "attached_assets")
+      }
+    },
+    root: path3.resolve(__dirname, "client"),
+    build: {
+      outDir: path3.resolve(__dirname, "dist/public"),
+      emptyOutDir: true
+    }
+  });
+}
 
 // server/vite.ts
 import { nanoid } from "nanoid";
@@ -15736,6 +15741,8 @@ init_db();
 init_schema();
 import http from "http";
 import { sql as sql3, eq as eq6, desc as desc3, and as and3 } from "drizzle-orm";
+import dotenv2 from "dotenv";
+dotenv2.config();
 http.globalAgent.maxSockets = Infinity;
 process.env.UV_THREADPOOL_SIZE = "128";
 var app = express3();
@@ -15842,9 +15849,10 @@ app.use((req, res, next) => {
     server.timeout = 3e5;
     server.keepAliveTimeout = 0;
     server.headersTimeout = 0;
-    const port = 5e3;
+    const port = process.env.PORT ? parseInt(process.env.PORT) : 5e3;
+    console.log("PORT from env:", process.env.PORT);
     server.listen(port, "0.0.0.0", () => {
-      log(`serving on port ${port}`);
+      log(`\u2705 Server running on port ${port}`);
     });
   } catch (err) {
     console.error("Failed to start server:", err);

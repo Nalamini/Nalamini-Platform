@@ -15,12 +15,12 @@ RUN npm run build
 # Create a directory for uploads
 RUN mkdir -p uploads && chmod 777 uploads
 
-# Set environment variables
+# Let Render provide the PORT dynamically
+# Don't hardcode PORT here
 ENV NODE_ENV=production
-ENV PORT=5000
 
-# Expose the port the app runs on
-EXPOSE 5000
+# Expose the port (Render expects this to match runtime PORT)
+EXPOSE 10000
 
-# Command to run the application
+# Start the app with dynamic port support
 CMD ["node", "server.js"]
