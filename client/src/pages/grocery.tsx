@@ -1459,36 +1459,33 @@ export default function GroceryPage() {
                 
                 <Separator />
                 
-                {/* Sub-Categories fetched from the database */}
-                {/* IMPORTANT: Make this always visible, regardless of auth state */}
-                {(activeCategory !== "all" && activeCategory !== "organic") || (activeCategory === '4' || activeCategory === 4) ? (
-                  <div>
-                    <h4 className="font-medium text-sm mb-2">Subcategories</h4>
-                    
-                    {/* CRITICAL FIX: Dedicated component approach for all categories */}
-                    {(activeCategory === '4' || activeCategory === 4) ? (
-                      /* Always show oil subcategories component - guaranteed to work */
-                      <div className="border-l-2 border-primary/40 pl-2">
-                        <div className="text-xs text-gray-500 mb-2">Choose an oil type:</div>
-                        <OilSubcategories 
-                          onSelect={setActiveSubcategory} 
-                          activeSubcategory={activeSubcategory}
-                        />
-                      </div>
-                    ) : (
-                      /* For all other categories, use the same standalone component approach that worked for oils */
-                      <div className="border-l-2 border-primary/40 pl-2">
-                        <div className="text-xs text-gray-500 mb-2">Choose a subcategory:</div>
-                        <CategorySubcategoriesDirect
-                          categoryId={activeCategory}
-                          onSelect={setActiveSubcategory}
-                          activeSubcategory={activeSubcategory}
-                        />
-                      </div>
-                    )}
-                    <Separator className="mt-4" />
-                  </div>
-                )}
+{((activeCategory !== "all" && activeCategory !== "organic") || (activeCategory === '4' || activeCategory === 4)) && (
+  <div>
+    <h4 className="font-medium text-sm mb-2">Subcategories</h4>
+    
+    {(activeCategory === '4' || activeCategory === 4) ? (
+      <div className="border-l-2 border-primary/40 pl-2">
+        <div className="text-xs text-gray-500 mb-2">Choose an oil type:</div>
+        <OilSubcategories 
+          onSelect={setActiveSubcategory} 
+          activeSubcategory={activeSubcategory}
+        />
+      </div>
+    ) : (
+      <div className="border-l-2 border-primary/40 pl-2">
+        <div className="text-xs text-gray-500 mb-2">Choose a subcategory:</div>
+        <CategorySubcategoriesDirect
+          categoryId={activeCategory}
+          onSelect={setActiveSubcategory}
+          activeSubcategory={activeSubcategory}
+        />
+      </div>
+    )}
+    
+    <Separator className="mt-4" />
+  </div>
+)}
+
                 
                 {/* Product Types - always show as an additional filter option */}
                 {activeCategory !== "all" && activeCategory !== "organic" && (

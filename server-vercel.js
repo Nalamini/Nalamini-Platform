@@ -1,51 +1,42 @@
-import dotenv from 'dotenv';
-dotenv.config();
-
 // server-vercel.js
-import express from 'express';
-import path from 'path';
-import fs from 'fs';
-import { fileURLToPath } from 'url';
 
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = path.dirname(__filename);
+const express = require('express');
+const dotenv = require('dotenv');
+const fs = require('fs');
+const path = require('path');
 
+dotenv.config();
 const app = express();
-const PORT = process.env.PORT;
+const PORT = process.env.PORT || 3000;
 
-// Debug logs
-console.log('📁 Working directory:', process.cwd());
+// Log paths
 console.log('📁 __dirname:', __dirname);
-console.log('📂 Files here:', fs.readdirSync(__dirname));
 
-// ✅ Health check endpoint
+// Health Check
 app.get('/api/health', (_req, res) => {
   res.status(200).json({
     status: 'ok',
     message: 'Nalamini Service Platform is running',
-    time: new Date().toISOString(),
+    time: new Date().toISOString()
   });
 });
 
-// ✅ Serve static files from 'public'
+// Serve from dist/public (correct relative path!)
 const publicDir = path.join(__dirname, 'public');
 if (fs.existsSync(publicDir)) {
   app.use(express.static(publicDir));
-
-  // Fallback to index.html for frontend routing
   app.get('*', (_req, res) => {
     res.sendFile(path.join(publicDir, 'index.html'));
   });
 } else {
-  console.warn('⚠️ Warning: public directory not found:', publicDir);
+  console.warn('⚠️ Static directory not found:', publicDir);
 }
 
-// ✅ Start server only if not in serverless
+// Run locally only for development
 if (process.env.NODE_ENV !== 'production' || process.env.VERCEL === undefined) {
   app.listen(PORT, () => {
-    console.log(`🚀 Server running locally at http://localhost:${PORT}`);
+    console.log(`🚀 Server running at http://localhost:${PORT}`);
   });
 }
 
-// ✅ Export for Vercel (serverless function handler)
-export default app;
+module.exports = app;

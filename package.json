@@ -5,8 +5,7 @@
   "license": "MIT",
   "scripts": {
     "dev": "cross-env NODE_ENV=development tsx server/index.ts",
-    "build": "vite build && esbuild server/index.ts --platform=node --packages=external --bundle --format=esm --outfile=dist/index.js",
-    "start": "node dist/index.js",
+    "build": "vite build && esbuild server-vercel.js --platform=node --bundle --format=cjs --outfile=dist/server-vercel.cjs --external:dotenv",
     "check": "tsc",
     "db:push": "drizzle-kit push"
   },
@@ -121,7 +120,7 @@
     "postcss": "^8.4.47",
     "tailwindcss": "^3.4.14",
     "tsx": "^4.19.1",
-    "typescript": "5.6.3",
+    "typescript": "^4.9.5",
     "vite": "^5.4.19"
   },
   "optionalDependencies": {
