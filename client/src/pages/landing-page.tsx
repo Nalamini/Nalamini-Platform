@@ -399,10 +399,10 @@ export default function LandingPage() {
               </div>
               
               {/* Always show this section */}
-              <div className="mb-12 bg-white rounded-2xl shadow-xl p-6">
-                <div className="max-w-full mx-auto relative">
+              {/* <div className="mb-12 bg-white rounded-2xl shadow-xl p-6">
+                <div className="max-w-full mx-auto relative"> */}
                   {/* Banner Background */}
-                  <div className="relative rounded-xl overflow-hidden">
+                  {/* <div className="relative rounded-xl overflow-hidden">
                     <img 
                       src={bannerImage}
                       alt="Nalamini Platform Services"
@@ -411,7 +411,7 @@ export default function LandingPage() {
                     />
                   </div>
                 </div>
-              </div>
+              </div> */}
               
               {/* Platform Banner with YouTube Embedded ON Banner */}
               <div className="mb-12 bg-white rounded-2xl shadow-xl p-6">
