@@ -21,7 +21,7 @@ export default async function () {
     const { cartographer } = await import("@replit/vite-plugin-cartographer");
     plugins.push(cartographer());
   }
-
+console.log('👉 Vite Output Directory Will Be:', path.resolve(__dirname, "dist/public"));
   return defineConfig({
     plugins,
     resolve: {
