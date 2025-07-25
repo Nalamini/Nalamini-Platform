@@ -911,7 +911,7 @@ export default function LandingPage() {
                 <li><a href="#contact" className="hover:text-white transition-colors">Contact Us</a></li>
                 <li><a href="/auth" className="hover:text-white transition-colors" onClick={(e) => { e.preventDefault(); navigate("/auth"); }}>Get Started</a></li>
                 <li><a href="/opportunities" className="hover:text-white transition-colors" onClick={(e) => { e.preventDefault(); navigate("/opportunities"); }}>Careers</a></li>
-                <li><a href="#" className="hover:text-white transition-colors">Privacy Policy</a></li>
+                <li><a href="/privacy-policy" className="hover:text-white transition-colors" onClick={(e) => { e.preventDefault(); navigate("/privacy-policy"); }}>Privacy Policy</a></li>
                 <li><a href="#" className="hover:text-white transition-colors">Terms of Service</a></li>
               </ul>
             </div>

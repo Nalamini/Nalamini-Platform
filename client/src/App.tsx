@@ -115,6 +115,7 @@ import LocalProductsBrowsePage from "@/pages/local-products-new";
 import OpportunitiesForum from "@/pages/opportunities-forum";
 import OpportunitiesForumNew from "@/pages/opportunities-forum-new";
 import NominationTest from "@/pages/nomination-test";
+import PrivacyPolicy from "./pages/privacy-policy";
 
 // Rental Pages
 import RentalMarketplace from "@/pages/rental-marketplace";
@@ -182,7 +183,8 @@ function Router() {
       <Route path="/" component={LandingPage} />
       <Route path="/auth" component={AuthPage} />
       <Route path="/opportunities" component={OpportunitiesForum} />
-      
+      <Route path="/privacy-policy" component={PrivacyPolicy} />
+
       <ProtectedRoute path="/dashboard">
         <AppLayout>
           <UnifiedDashboard />
