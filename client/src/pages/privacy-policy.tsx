@@ -71,7 +71,7 @@ const PrivacyPolicy = () => {
           </div>
         </div>
       </nav>
-    <div className="bg-white container mx-auto px-4 py-10 max-w-3xl">
+    <div className="bg-white container mx-auto px-4 py-20 max-w-3xl">
       <h1 className="text-3xl font-bold mb-6">Privacy Policy</h1>
 
       <p className="mb-4">
