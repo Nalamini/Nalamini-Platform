@@ -1,8 +1,15 @@
-import React from 'react';
 import { Button } from "@/components/ui/button";
 import { useLocation } from "wouter";
+import React, { useEffect } from 'react';
 
 const PrivacyPolicy = () => {
+    useEffect(() => {
+    document.body.style.background = '#ffffff';
+    document.body.style.transition = 'background 0.3s ease';
+    return () => {
+      document.body.style.background = '';
+    };
+  }, []);
       const [, navigate] = useLocation();
   return (
         <div className="min-h-screen flex flex-col relative">
